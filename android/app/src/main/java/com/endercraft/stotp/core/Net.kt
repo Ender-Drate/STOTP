@@ -1,9 +1,6 @@
 package com.endercraft.stotp.core
 
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
 
 class StotpException(
@@ -38,46 +35,10 @@ class StotpHttp(server: String) {
 
     private fun request(method: String, path: String, body: ByteArray?,
                         token: String?, contentType: String? = null): HttpResult {
-        val url = URL(base + path)
-        // 局域网地址绕过系统 HTTP 代理：手机上的 Clash/公司代理常把私网地址也代理走，
-        // 表现为浏览器能开、App 的 TCP 连接却超时。
-        val raw = if (isPrivateHost(url.host)) {
-            url.openConnection(java.net.Proxy.NO_PROXY)
-        } else {
-            url.openConnection()
-        }
-        val connection = (raw as HttpURLConnection).apply {
-            requestMethod = method
-            connectTimeout = 6_000
-            readTimeout = 15_000
-            instanceFollowRedirects = false
-            setRequestProperty("Accept", "application/json")
-            if (token != null) setRequestProperty("Authorization", "Bearer $token")
-            if (contentType != null) setRequestProperty("Content-Type", contentType)
-            if (body != null) doOutput = true
-        }
-        try {
-            if (body != null) connection.outputStream.use { it.write(body) }
-            val status = connection.responseCode
-            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
-            return HttpResult(status, text)
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun isPrivateHost(host: String): Boolean {
-        if (host.equals("localhost", ignoreCase = true) ||
-            host.endsWith(".local", ignoreCase = true)
-        ) return true
-        val parts = host.split(".")
-        if (parts.size != 4) return false
-        val octets = parts.map { it.toIntOrNull() ?: return false }
-        if (octets.any { it !in 0..255 }) return false
-        val (a, b) = octets
-        return a == 10 || a == 127 || (a == 192 && b == 168) ||
-            (a == 172 && b in 16..31) || (a == 169 && b == 254)
+        val headers = mutableMapOf("Accept" to "application/json")
+        if (token != null) headers["Authorization"] = "Bearer $token"
+        if (contentType != null) headers["Content-Type"] = contentType
+        return RawHttp.request(method, base + path, headers, body)
     }
 }
 

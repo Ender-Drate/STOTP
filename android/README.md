@@ -98,7 +98,8 @@ android/app/src/main/java/com/endercraft/stotp/
    - 系统「联网控制 / 流量管理」里允许 STOTP 使用 WLAN；
    - 关闭「WLAN 助理 / 智能网络切换」，避免 App 走蜂窝；
    - 「测试连接」失败时会附带当前网络类型（Wi-Fi / 蜂窝 / VPN）与本地网络权限状态。
-   客户端对局域网地址已强制绕过系统 HTTP 代理（`Proxy.NO_PROXY`），但 VPN 在 IP 层接管时仍需手动放行。
+   客户端的所有 API 请求使用**直连 socket 的 HTTP/1.1 客户端**（无连接池、无系统代理、`Connection: close`），
+   不经过 `HttpURLConnection`/OkHttp，避免 keep-alive 复用失效连接或系统代理导致的「TCP 通、HTTP 超时」。
 
 ## 已知限制
 
