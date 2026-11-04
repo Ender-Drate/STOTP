@@ -78,6 +78,14 @@ Android 端默认连接 `http://10.0.2.2:8787`（模拟器映射到宿主机）�
 触控目标、对比度与 reduced-motion 行为。设计令牌集中在
 `android/app/src/main/java/com/endercraft/stotp/ui/theme/`。
 
+| 验证码 | 设备详情 |
+| --- | --- |
+| ![验证码](docs/screenshots/home.png) | ![设备详情](docs/screenshots/detail.png) |
+
+| 设置 | 解锁 |
+| --- | --- |
+| ![设置](docs/screenshots/settings.png) | ![解锁](docs/screenshots/lock.png) |
+
 ## 安全
 
 - 验证接口不通过状态码、响应长度或明文布尔值泄露结果。
@@ -89,6 +97,6 @@ Android 端默认连接 `http://10.0.2.2:8787`（模拟器映射到宿主机）�
 | 交付物 | 状态 |
 | --- | --- |
 | 技术文档 | ✅ 已交付 |
-| STOTP 服务端 | 🚧 实现中（Issue #2） |
-| Android 客户端 | 🚧 实现中（Issue #3） |
+| STOTP 服务端 | ✅ 已交付（14 个 unittest） |
+| Android 客户端 | ✅ 已交付（模拟器全流程验证） |
 | OAuth2 登录站 | 不在本仓库（部署在运营方本地，通过 OAuth2 回调接入） |

@@ -1,22 +1,37 @@
 package com.endercraft.stotp.ui.theme
 
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.endercraft.stotp.R
+
+/**
+ * 字体：Manrope 承担 UI（接近 SF 的几何人文体），JetBrains Mono 承担数字与验证码。
+ * 中文由系统字体回退渲染。
+ */
+val Manrope = FontFamily(
+    Font(R.font.manrope_400, FontWeight.Normal),
+    Font(R.font.manrope_500, FontWeight.Medium),
+    Font(R.font.manrope_600, FontWeight.SemiBold),
+    Font(R.font.manrope_700, FontWeight.Bold),
+)
+
+val MonoFont = FontFamily(
+    Font(R.font.jetbrains_mono_400, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_500, FontWeight.Medium),
+)
 
 /**
  * 排版规范：
  * - 大标题负字距（越大越负）
- * - 正文行高 ≥ 1.6（移动端 1.55–1.7）
- * - 数字一律 tabular-nums（等宽数字由 [Numeric] / [Mono] 承担）
+ * - 正文行高 ≥ 1.55（移动端）
+ * - 数字一律等宽（Mono 字体）
  */
 object StotpType {
-    private val Sans = FontFamily.SansSerif
-    private val MonoFamily = FontFamily.Monospace
-
     val LargeTitle = TextStyle(
-        fontFamily = Sans,
+        fontFamily = Manrope,
         fontSize = 34.sp,
         lineHeight = 38.sp,
         fontWeight = FontWeight.Bold,
@@ -24,7 +39,7 @@ object StotpType {
     )
 
     val Title = TextStyle(
-        fontFamily = Sans,
+        fontFamily = Manrope,
         fontSize = 22.sp,
         lineHeight = 28.sp,
         fontWeight = FontWeight.Bold,
@@ -32,7 +47,7 @@ object StotpType {
     )
 
     val Item = TextStyle(
-        fontFamily = Sans,
+        fontFamily = Manrope,
         fontSize = 16.sp,
         lineHeight = 22.sp,
         fontWeight = FontWeight.SemiBold,
@@ -40,21 +55,21 @@ object StotpType {
     )
 
     val Body = TextStyle(
-        fontFamily = Sans,
+        fontFamily = Manrope,
         fontSize = 16.sp,
         lineHeight = 26.sp,
         fontWeight = FontWeight.Normal,
     )
 
     val Meta = TextStyle(
-        fontFamily = Sans,
+        fontFamily = Manrope,
         fontSize = 13.sp,
         lineHeight = 20.sp,
         fontWeight = FontWeight.Normal,
     )
 
     val Caption = TextStyle(
-        fontFamily = Sans,
+        fontFamily = Manrope,
         fontSize = 11.sp,
         lineHeight = 15.sp,
         fontWeight = FontWeight.Medium,
@@ -62,17 +77,26 @@ object StotpType {
     )
 
     val Mono = TextStyle(
-        fontFamily = MonoFamily,
+        fontFamily = MonoFont,
         fontSize = 15.sp,
         lineHeight = 22.sp,
         fontWeight = FontWeight.Medium,
+        letterSpacing = 0.6.sp,
     )
 
     val Code = TextStyle(
-        fontFamily = MonoFamily,
-        fontSize = 52.sp,
-        lineHeight = 60.sp,
+        fontFamily = MonoFont,
+        fontSize = 50.sp,
+        lineHeight = 58.sp,
         fontWeight = FontWeight.Medium,
-        letterSpacing = 4.sp,
+        letterSpacing = 3.sp,
+    )
+
+    val CodeSmall = TextStyle(
+        fontFamily = MonoFont,
+        fontSize = 17.sp,
+        lineHeight = 22.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 1.sp,
     )
 }
