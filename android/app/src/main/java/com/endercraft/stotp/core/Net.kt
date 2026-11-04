@@ -39,10 +39,17 @@ class StotpHttp(server: String) {
     private fun request(method: String, path: String, body: ByteArray?,
                         token: String?, contentType: String? = null): HttpResult {
         val url = URL(base + path)
-        val connection = (url.openConnection() as HttpURLConnection).apply {
+        // 局域网地址绕过系统 HTTP 代理：手机上的 Clash/公司代理常把私网地址也代理走，
+        // 表现为浏览器能开、App 的 TCP 连接却超时。
+        val raw = if (isPrivateHost(url.host)) {
+            url.openConnection(java.net.Proxy.NO_PROXY)
+        } else {
+            url.openConnection()
+        }
+        val connection = (raw as HttpURLConnection).apply {
             requestMethod = method
-            connectTimeout = 20_000
-            readTimeout = 20_000
+            connectTimeout = 6_000
+            readTimeout = 15_000
             instanceFollowRedirects = false
             setRequestProperty("Accept", "application/json")
             if (token != null) setRequestProperty("Authorization", "Bearer $token")
@@ -58,6 +65,19 @@ class StotpHttp(server: String) {
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun isPrivateHost(host: String): Boolean {
+        if (host.equals("localhost", ignoreCase = true) ||
+            host.endsWith(".local", ignoreCase = true)
+        ) return true
+        val parts = host.split(".")
+        if (parts.size != 4) return false
+        val octets = parts.map { it.toIntOrNull() ?: return false }
+        if (octets.any { it !in 0..255 }) return false
+        val (a, b) = octets
+        return a == 10 || a == 127 || (a == 192 && b == 168) ||
+            (a == 172 && b in 16..31) || (a == 169 && b == 254)
     }
 }
 

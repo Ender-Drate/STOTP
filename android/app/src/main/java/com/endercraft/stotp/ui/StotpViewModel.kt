@@ -1,6 +1,9 @@
 package com.endercraft.stotp.ui
 
 import android.app.Application
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import androidx.compose.runtime.getValue
@@ -475,9 +478,27 @@ class StotpViewModel(application: Application) : AndroidViewModel(application) {
                         notice = "连接成功 · STOTP ${json.optString("version", "")} · $server",
                     )
                 },
-                onFailure = { error -> ui.copy(busy = false, error = friendly(error)) },
+                onFailure = { error ->
+                    ui.copy(busy = false,
+                        error = friendly(error) + " · 当前网络：" + networkSummary())
+                },
             )
         }
+    }
+
+    private fun networkSummary(): String {
+        val manager = getApplication<Application>()
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: return "未知"
+        val network = manager.activeNetwork ?: return "无可用网络"
+        val caps = manager.getNetworkCapabilities(network) ?: return "未知"
+        val labels = buildList {
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) add("Wi-Fi")
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) add("蜂窝")
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) add("VPN")
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) add("以太网")
+        }
+        return if (labels.isEmpty()) "其它" else labels.joinToString("+")
     }
 
     private fun normalizeServer(input: String): String? {
@@ -512,6 +533,10 @@ class StotpViewModel(application: Application) : AndroidViewModel(application) {
             "服务端没有启用 TLS：请把地址改成 http://<主机>:<端口>"
         is javax.net.ssl.SSLException ->
             "TLS 握手失败：服务端可能是明文 HTTP，请把地址改成 http://"
+        is java.net.SocketTimeoutException ->
+            "连接超时（6 秒）：到服务端的 TCP 连接没有建立。" +
+                "请关闭 VPN/按应用代理、检查系统「联网控制」是否允许 STOTP 访问 WLAN，" +
+                "或关闭「智能网络切换」"
         is java.io.IOException -> {
             val text = error.message.orEmpty()
             when {
