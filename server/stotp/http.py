@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import sys
 import urllib.parse
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -117,6 +118,13 @@ class StotpHTTPServer(ThreadingHTTPServer):
         self.trust_proxy = trust_proxy
         super().__init__(addr, handler_cls)
 
+    def handle_error(self, request, client_address) -> None:
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError, TimeoutError)):
+            log.debug("客户端提前断开：%s", client_address[0])
+            return
+        super().handle_error(request, client_address)
+
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -206,5 +214,23 @@ class Handler(BaseHTTPRequestHandler):
         if resp.body:
             self.wfile.write(resp.body)
 
+    def _warn_non_http(self) -> None:
+        if getattr(self, "_non_http_warned", False):
+            return
+        self._non_http_warned = True
+        log.warning(
+            "%s 向明文端口发送了非 HTTP 数据（常见于 https:// 或 TLS 客户端），已拒绝；"
+            "请改用 http://，或在前置反向代理启用 HTTPS",
+            self.address_string(),
+        )
+
     def log_message(self, fmt: str, *args) -> None:  # noqa: A003
-        log.info("%s - %s", self.address_string(), fmt % args)
+        message = fmt % args
+        if "Bad request version" in message or "Bad request syntax" in message:
+            self._warn_non_http()
+            return
+        # 二进制请求行（TLS ClientHello 等）不直接落日志
+        if any(ord(ch) < 9 or 13 < ord(ch) < 32 or ord(ch) > 126 for ch in message):
+            self._warn_non_http()
+            return
+        log.info("%s - %s", self.address_string(), message)

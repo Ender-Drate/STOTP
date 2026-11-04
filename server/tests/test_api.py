@@ -216,6 +216,19 @@ class ApiTest(unittest.TestCase):
         # CSS 花括号不能被 str.format 破坏
         self.assertNotIn(b"{{", raw)
 
+    def test_landing_page(self):
+        status, raw = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        body = raw.decode("utf-8")
+        self.assertIn("STOTP 服务端", body)
+        self.assertIn("/healthz", body)
+        self.assertIn("http://", body)
+
+    def test_favicon_no_content(self):
+        status, raw = self.request("GET", "/favicon.ico")
+        self.assertEqual(status, 204)
+        self.assertEqual(raw, b"")
+
 
 class RequireTlsTest(unittest.TestCase):
     """require_tls=1 时必须带 X-Forwarded-Proto: https。"""
