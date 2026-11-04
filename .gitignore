@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+server/data/
+*.db
+*.sqlite3
+*.log
+
+# Android / Gradle
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.idea/
+*.iml
+*.apk
+*.aab
+captures/
+
+# Local scratch
+.tmp/
+.DS_Store
+Thumbs.db
