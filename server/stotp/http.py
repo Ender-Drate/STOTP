@@ -157,6 +157,11 @@ class Handler(BaseHTTPRequestHandler):
         req = Request(method, parsed.path, query, headers, body, self._client_ip())
 
         app = self.server.app  # type: ignore[attr-defined]
+        if app.cfg.require_tls and req.headers.get("x-forwarded-proto", "").lower() != "https":
+            self._respond(Response.json(
+                {"ok": False, "error": {"code": "tls_required",
+                                        "message": "必须通过 HTTPS 访问"}}, 400))
+            return
         handler, params = app.router.match(method, parsed.path)
         if handler is None:
             self._respond(Response.json(
@@ -189,6 +194,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
+        if getattr(self.server, "app", None) and self.server.app.cfg.require_tls:
+            self.send_header("Strict-Transport-Security",
+                             "max-age=31536000; includeSubDomains")
         self.send_header("Cache-Control", "no-store")
         for key, value in resp.headers.items():
             self.send_header(key, value)

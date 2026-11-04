@@ -49,8 +49,8 @@ STOTP/
 ```powershell
 cd server
 python -m pip install -r requirements.txt
-$env:STOTP_MASTER_KEY = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Max 256 }))
-python -m stotp --dev-login --db .\data\stotp.db
+python -m stotp --dev-login --create-account demo:demo1234 --db .\data\stotp.db
+# 首次启动自动生成 data/keys/{master,session,token}.key
 # 打开 http://127.0.0.1:8787/healthz
 ```
 
@@ -75,7 +75,7 @@ Android 端默认连接 `http://10.0.2.2:8787`（模拟器映射到宿主机）�
 
 客户端视觉遵循 **Apple Liquid Glass** 规范（`#f5f5f7` 冷灰底、白色统一面板 + 发丝分隔线、
 玻璃只用于导航/浮层、单一强调蓝），并以 UI/UX Pro Max 的 Compose 无障碍与动效准则补足
-触控目标、对比度与 reduced-motion 行为。设计令牌集中在
+触控目标与对比度。设计令牌集中在
 `android/app/src/main/java/com/endercraft/stotp/ui/theme/`。
 
 | 验证码 | 设备详情 |

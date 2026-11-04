@@ -2,7 +2,7 @@
 
 Kotlin + Jetpack Compose 实现。视觉遵循 **Apple Liquid Glass**（冷灰底、统一白色面板 + 发丝线、
 玻璃只用于导航/浮层、单一强调蓝），并结合 UI/UX Pro Max 的 Compose 准则（触控目标 ≥ 44dp、
-`tabular-nums`、reduced-motion 友好、单源状态）。
+`tabular-nums`、单源状态、≥ 44dp 触控目标）。
 
 ## 构建
 

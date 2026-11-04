@@ -217,5 +217,48 @@ class ApiTest(unittest.TestCase):
         self.assertNotIn(b"{{", raw)
 
 
+class RequireTlsTest(unittest.TestCase):
+    """require_tls=1 时必须带 X-Forwarded-Proto: https。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="stotp-tls-")
+        cfg = Config.from_env(
+            host="127.0.0.1", port=0,
+            db_path=os.path.join(cls.tmp, "tls.db"),
+            key_dir=os.path.join(cls.tmp, "keys"),
+            dev_login=False, verify_budget_ms=0, require_tls=True,
+        )
+        cls.app = App(cfg)
+        cls.server = StotpHTTPServer(("127.0.0.1", 0), Handler, cls.app)
+        cls.port = cls.server.server_address[1]
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def get(self, headers=None):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        conn.request("GET", "/healthz", headers=headers or {})
+        resp = conn.getresponse()
+        body = resp.read()
+        conn.close()
+        return resp.status, resp.getheader("Strict-Transport-Security"), body
+
+    def test_rejects_plaintext(self):
+        status, _, body = self.get()
+        self.assertEqual(status, 400)
+        self.assertIn(b"tls_required", body)
+
+    def test_accepts_forwarded_https(self):
+        status, hsts, _ = self.get({"X-Forwarded-Proto": "https"})
+        self.assertEqual(status, 200)
+        self.assertIn("max-age=31536000", hsts or "")
+
+
 if __name__ == "__main__":
     unittest.main()
