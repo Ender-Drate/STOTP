@@ -349,10 +349,72 @@ def healthz(app, req: Request) -> Response:
     })
 
 
+LANDING_HTML = """<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STOTP 服务端</title>
+<style>
+:root{color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f5f5f7;
+font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
+color:#1d1d1f;-webkit-font-smoothing:antialiased;padding:24px}
+.card{width:min(560px,100%);background:#fff;border-radius:22px;padding:30px 28px;
+box-shadow:0 1px 3px rgba(0,0,0,.05),0 14px 40px rgba(0,0,0,.05)}
+.head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.mark{width:44px;height:44px;border-radius:14px;background:#0071e3;color:#fff;display:grid;
+place-items:center;font-weight:700;font-size:22px}
+h1{font-size:24px;letter-spacing:-.02em;margin:0}
+.sub{color:#6e6e73;font-size:13px;margin:2px 0 0}
+.dot{width:7px;height:7px;border-radius:50%;background:#30d158;display:inline-block;margin-right:6px}
+.meta{display:flex;gap:16px;flex-wrap:wrap;color:#6e6e73;font-size:13px;margin:18px 0 4px}
+.warn{margin:18px 0;background:rgba(255,107,0,.08);color:#8a4b00;border-radius:12px;
+padding:12px 14px;font-size:13px;line-height:1.6}
+ul{list-style:none;padding:0;margin:8px 0 0}
+li{padding:11px 0;border-top:1px solid rgba(0,0,0,.07);font-size:14px;display:flex;
+justify-content:space-between;gap:12px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;color:#1d1d1f}
+a{color:#0071e3;text-decoration:none}
+.foot{margin-top:18px;color:#86868b;font-size:11px}
+</style></head><body>
+<div class="card">
+  <div class="head"><div class="mark">S</div><div><h1>STOTP 服务端</h1>
+  <p class="sub"><span class="dot"></span>运行中 · Super-Enhanced TOTP</p></div></div>
+  <div class="meta"><span>版本 __VERSION__</span><span>已运行 __UPTIME__ 秒</span></div>
+  <div class="warn">当前是<b>明文 HTTP</b>。若浏览器自动跳转到 <code>https://</code>，会看到
+  “Bad request version”——请手动改回 <code>http://</code>，或在前置反向代理（Caddy/Nginx）启用 TLS。</div>
+  <ul>
+    <li><span>健康检查</span><a href="/healthz">/healthz</a></li>
+    <li><span>STOTP 配置</span><a href="/.well-known/stotp-configuration">/.well-known/stotp-configuration</a></li>
+    <li><span>OIDC 发现</span><a href="/.well-known/openid-configuration">/.well-known/openid-configuration</a></li>
+    <li><span>联调登录页</span><a href="/login">/login</a></li>
+  </ul>
+  <div class="foot">Android 客户端会通过 OAuth2 动态注册并完成 PKCE 登录与设备注册。</div>
+</div></body></html>"""
+
+
+def landing(app, req: Request) -> Response:
+    html = (LANDING_HTML
+            .replace("__VERSION__", "1.0.0")
+            .replace("__UPTIME__", str(int(time.time() - app.started_at))))
+    return Response(
+        status=200,
+        body=html.encode("utf-8"),
+        content_type="text/html; charset=utf-8",
+        headers={"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'"},
+    )
+
+
+def favicon(app, req: Request) -> Response:
+    return Response(status=204)
+
+
 # ---- 路由 ---------------------------------------------------------------
 
 
 def register(router) -> None:
+    router.add("GET", r"/", landing)
+    router.add("GET", r"/favicon\.ico", favicon)
     router.add("POST", r"/v1/clients", register_stotp_client)
     router.add("GET", r"/v1/clients", list_clients)
     router.add("GET", r"/v1/clients/(?P<client_id>[0-9a-fA-F-]{36})", get_client)

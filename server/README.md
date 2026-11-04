@@ -14,9 +14,11 @@ python -m stotp --dev-login --create-account demo:demo1234 --db .\data\stotp.db
 
 # 另一个终端
 curl.exe http://127.0.0.1:8787/healthz
+# 浏览器打开 http://127.0.0.1:8787/ 可看到服务状态与端点说明页
 ```
 
 `--dev-login` 会在浏览器流程中提供内置登录页，仅用于本地联调；生产环境不要开启。
+根路径说明页会提示：当前是明文 HTTP，浏览器**不要**用 `https://` 打开（TLS 应由反向代理终止）。
 
 ## 配置
 
