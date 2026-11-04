@@ -30,8 +30,8 @@ Authorization: Bearer <access_token>
 | 409 | `already_exists` | `client_id` 冲突 |
 | 429 | `rate_limited` | 触发限速，响应头带 `Retry-After` |
 
-> **例外**：`POST /v1/verify` 永不返回上述错误——它恒为 `200` + 定长密文/断言，
-> 详见 §5。
+> **例外**：`POST /v1/verify` 除「未携带或伪造 Bearer 令牌」返回 `401` 外，
+> 其余所有结果恒为 `200` + 定长密文/断言，详见 §4。
 
 ### 0.3 限速
 
@@ -270,6 +270,8 @@ grant_type=client_credentials&client_id=<id>&client_secret=<secret>&scope=stotp.
 
 - 用户令牌（`stotp.verify`）→ **sealed** 模式，返回种子派生密钥加密的结果。
 - 客户端凭证令牌 → **assertion** 模式，返回 HS256 断言供登录站验签。
+- 除认证失败（`401`）外，无论客户端是否存在、是否吊销、验证码是否正确，响应都是 `200`
+  且结构与长度一致；未知客户端使用服务端 dummy seed 走同等计算。
 
 **sealed 响应（恒 200）**
 
