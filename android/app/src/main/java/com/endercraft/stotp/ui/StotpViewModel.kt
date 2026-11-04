@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.endercraft.stotp.core.Crypto
+import com.endercraft.stotp.core.LocalNetworkPermission
 import com.endercraft.stotp.core.Profile
 import com.endercraft.stotp.core.StotpApi
 import com.endercraft.stotp.core.StotpException
@@ -469,7 +470,27 @@ class StotpViewModel(application: Application) : AndroidViewModel(application) {
         ui = ui.copy(busy = true, error = null, notice = null)
         viewModelScope.launch {
             val result = runCatching {
-                withContext(Dispatchers.IO) { StotpApi(server).health() }
+                withContext(Dispatchers.IO) {
+                    val uri = Uri.parse(server)
+                    val host = uri.host
+                        ?: throw StotpException(400, "bad_host", "地址不合法")
+                    val port = when {
+                        uri.port > 0 -> uri.port
+                        uri.scheme == "https" -> 443
+                        else -> 80
+                    }
+                    try {
+                        java.net.Socket().use { socket ->
+                            socket.connect(java.net.InetSocketAddress(host, port), 4_000)
+                        }
+                    } catch (error: java.io.IOException) {
+                        throw StotpException(
+                            0, "tcp_unreachable",
+                            "TCP ${host}:${port} 连接失败（${error.javaClass.simpleName}）",
+                        )
+                    }
+                    StotpApi(server).health()
+                }
             }
             ui = result.fold(
                 onSuccess = { json ->
@@ -479,8 +500,11 @@ class StotpViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 },
                 onFailure = { error ->
+                    val permission = if (LocalNetworkPermission.supported(getApplication()) &&
+                        !LocalNetworkPermission.granted(getApplication())
+                    ) " · 本地网络权限未允许" else ""
                     ui.copy(busy = false,
-                        error = friendly(error) + " · 当前网络：" + networkSummary())
+                        error = friendly(error) + " · 当前网络：" + networkSummary() + permission)
                 },
             )
         }

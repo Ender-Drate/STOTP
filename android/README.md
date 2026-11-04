@@ -92,10 +92,12 @@ android/app/src/main/java/com/endercraft/stotp/
 5. 手机浏览器自测：打开 `http://<电脑 IP>:8787/healthz`，能返回 JSON 说明网络与端口没问题。
 6. **浏览器能开、App 超时**（`failed to connect ... after 6000ms`）：说明服务端没问题，是手机把
    STOTP 的流量路由到了别处。依次检查：
+   - **Android 16+ 本地网络权限**：App 访问 `192.168.x.x` 需要 `ACCESS_LOCAL_NETWORK`，连接页会提示
+     「需要本地网络权限」并要求授权；浏览器是系统应用，不受此限制。
    - 关闭 VPN / Clash 等代理的「全局/TUN」模式，或把 `192.168.x.0/24` 设为直连；
    - 系统「联网控制 / 流量管理」里允许 STOTP 使用 WLAN；
    - 关闭「WLAN 助理 / 智能网络切换」，避免 App 走蜂窝；
-   - 「测试连接」失败时会附带当前网络类型（Wi-Fi / 蜂窝 / VPN），可据此判断。
+   - 「测试连接」失败时会附带当前网络类型（Wi-Fi / 蜂窝 / VPN）与本地网络权限状态。
    客户端对局域网地址已强制绕过系统 HTTP 代理（`Proxy.NO_PROXY`），但 VPN 在 IP 层接管时仍需手动放行。
 
 ## 已知限制
