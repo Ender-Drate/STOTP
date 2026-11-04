@@ -27,7 +27,7 @@ curl.exe http://127.0.0.1:8787/healthz
 | `STOTP_DB` / `--db` | `data/stotp.db` | SQLite 路径（WAL） |
 | `STOTP_PUBLIC_URL` / `--public-url` | `http://host:port` | 发现文档与令牌 `iss` 的对外地址 |
 | `STOTP_DEV_LOGIN` / `--dev-login` | 关 | 启用内置登录页 |
-| `STOTP_REQUIRE_TLS` / `--require-tls` | 关 | 生产模式；会关闭 Secure Cookie 的降级 |
+| `STOTP_REQUIRE_TLS` / `--require-tls` | 关 | 强制 `X-Forwarded-Proto: https`，否则 400；响应加 HSTS |
 | `STOTP_TRUST_PROXY` / `--trust-proxy` | 关 | 信任 `X-Forwarded-For` |
 | `STOTP_EPOCH_SECONDS` | `3600` | UUID 轮换周期 |
 | `STOTP_VERIFY_BUDGET_MS` | `40` | 验证接口耗时预算（含 sleep 补齐） |

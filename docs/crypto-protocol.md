@@ -162,7 +162,8 @@ uuid_bytes = raw[0:16]，按 RFC 4122 置 version = 8（自定义）、variant =
 
 ## 7. 服务端密钥与落库
 
-- `STOTP_MASTER_KEY`：32B base64，来自环境变量或 `server/master.key`（权限 600，首次启动生成）。
+- `STOTP_MASTER_KEY`：32B base64，来自环境变量或 `<db 目录>/keys/master.key`（默认 `server/data/keys/master.key`，
+  权限 600，首次启动生成）。
 - seed 落库：`seed_enc = AES-256-GCM(master_key, aad = "seed:" ‖ client_id)`。
 - `client_secret` 落库：仅存 `SHA-256(secret)`；`assert_key` 用 master_key 信封加密单独保存。
 - 主密钥轮换：`stotp rotate-master` 使用新密钥重加密全部 `seed_enc` / `assert_key`，旧密文保留 24h 供回滚。
