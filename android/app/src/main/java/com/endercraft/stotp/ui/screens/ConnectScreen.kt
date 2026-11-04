@@ -1,7 +1,13 @@
 package com.endercraft.stotp.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,15 +19,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.endercraft.stotp.core.LocalNetworkPermission
 import com.endercraft.stotp.ui.components.FieldLabel
 import com.endercraft.stotp.ui.components.IconBadge
 import com.endercraft.stotp.ui.components.LineIcon
@@ -50,6 +59,17 @@ fun ConnectScreen(
 ) {
     var localServer by remember(server) { mutableStateOf(server) }
     var localName by remember(deviceName) { mutableStateOf(deviceName) }
+
+    val context = LocalContext.current
+    var networkGranted by remember { mutableStateOf(LocalNetworkPermission.granted(context)) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> networkGranted = granted }
+    LaunchedEffect(Unit) {
+        if (LocalNetworkPermission.supported(context) && !networkGranted) {
+            permissionLauncher.launch(LocalNetworkPermission.NAME)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -114,6 +134,47 @@ fun ConnectScreen(
                     onValueChange = { localName = it; onDeviceNameChange(it) },
                     placeholder = "例如：Pixel 7",
                 )
+
+                if (LocalNetworkPermission.supported(context) && !networkGranted) {
+                    Spacer(Modifier.height(15.dp))
+                    Panel {
+                        Column(Modifier.padding(17.dp)) {
+                            Text(
+                                "需要本地网络权限",
+                                style = StotpType.Item,
+                                color = StotpColors.TextPrimary,
+                            )
+                            Spacer(Modifier.height(5.dp))
+                            Text(
+                                "Android 16+ 会拦截 App 访问 192.168.x.x；浏览器不受此限制。",
+                                style = StotpType.Caption,
+                                color = StotpColors.TextSecondary,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            PrimaryButton(
+                                text = "允许本地网络",
+                                onClick = {
+                                    permissionLauncher.launch(LocalNetworkPermission.NAME)
+                                },
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "去系统设置授权",
+                                style = StotpType.Caption,
+                                color = StotpColors.Accent,
+                                modifier = Modifier.clickable {
+                                    context.startActivity(
+                                        Intent(
+                                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                            Uri.fromParts("package", context.packageName, null),
+                                        )
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(22.dp))
                 PrimaryButton(
                     text = "登录并注册",
