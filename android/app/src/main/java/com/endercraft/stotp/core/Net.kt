@@ -131,6 +131,9 @@ class StotpApi(server: String) {
     fun epoch(token: String, clientId: String): JSONObject =
         ensureOk(http.get("/v1/clients/$clientId/epoch", token))
 
+    /** 无需鉴权的连通性探测。 */
+    fun health(): JSONObject = ensureOk(http.get("/healthz"))
+
     fun userinfo(token: String): JSONObject = ensureOk(http.get("/oauth/userinfo", token))
 
     fun rotate(token: String, clientId: String): JSONObject =

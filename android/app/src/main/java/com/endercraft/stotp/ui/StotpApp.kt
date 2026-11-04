@@ -60,10 +60,12 @@ fun StotpApp(vm: StotpViewModel) {
             Screen.Connect -> ConnectScreen(
                 server = state.serverInput,
                 deviceName = state.deviceName,
+                preview = vm.previewServer(state.serverInput),
                 busy = state.busy,
                 onServerChange = vm::updateServer,
                 onDeviceNameChange = vm::updateDeviceName,
                 onContinue = vm::beginOAuth,
+                onTest = vm::testConnection,
                 onBack = { vm.navigate(Screen.Home) },
             )
             Screen.Home -> HomeScreen(state, vm)

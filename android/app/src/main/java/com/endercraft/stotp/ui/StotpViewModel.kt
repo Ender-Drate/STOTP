@@ -178,6 +178,10 @@ class StotpViewModel(application: Application) : AndroidViewModel(application) {
             ui = ui.copy(error = "服务端地址不合法")
             return
         }
+        val parsed = Uri.parse(server)
+        if (parsed.scheme == "https" && isPrivateHost(parsed.host ?: "")) {
+            ui = ui.copy(notice = "这是局域网地址，服务端通常没有 TLS；若连接失败请改用 http://")
+        }
         ui = ui.copy(busy = true, error = null)
         viewModelScope.launch {
             val result = runCatching {
@@ -452,6 +456,30 @@ class StotpViewModel(application: Application) : AndroidViewModel(application) {
         return merged
     }
 
+    fun previewServer(input: String): String = normalizeServer(input) ?: input.trim()
+
+    fun testConnection() {
+        val server = normalizeServer(ui.serverInput) ?: run {
+            ui = ui.copy(error = "服务端地址不合法")
+            return
+        }
+        ui = ui.copy(busy = true, error = null, notice = null)
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { StotpApi(server).health() }
+            }
+            ui = result.fold(
+                onSuccess = { json ->
+                    ui.copy(
+                        busy = false,
+                        notice = "连接成功 · STOTP ${json.optString("version", "")} · $server",
+                    )
+                },
+                onFailure = { error -> ui.copy(busy = false, error = friendly(error)) },
+            )
+        }
+    }
+
     private fun normalizeServer(input: String): String? {
         var text = input.trim()
         if (text.isEmpty()) return null
@@ -459,15 +487,39 @@ class StotpViewModel(application: Application) : AndroidViewModel(application) {
         val uri = runCatching { Uri.parse(text) }.getOrNull() ?: return null
         val host = uri.host ?: return null
         val port = if (uri.port > 0) ":${uri.port}" else ""
-        val scheme = uri.scheme ?: "http"
+        val scheme = (uri.scheme ?: "http").lowercase()
         return "$scheme://$host$port"
+    }
+
+    private fun isPrivateHost(host: String): Boolean {
+        if (host.equals("localhost", ignoreCase = true) ||
+            host.endsWith(".local", ignoreCase = true)
+        ) return true
+        val parts = host.split(".")
+        if (parts.size != 4) return false
+        val octets = parts.map { it.toIntOrNull() ?: return false }
+        if (octets.any { it !in 0..255 }) return false
+        val (a, b) = octets
+        return a == 10 || a == 127 || (a == 192 && b == 168) ||
+            (a == 172 && b in 16..31) || (a == 169 && b == 254)
     }
 
     private fun friendly(error: Throwable): String = when (error) {
         is StotpException -> error.message ?: "请求失败"
-        is java.net.UnknownHostException -> "无法连接服务端"
-        is java.net.ConnectException -> "服务端未启动或地址不可达"
-        is javax.net.ssl.SSLException -> "TLS 连接失败"
+        is java.net.UnknownHostException -> "无法解析服务器地址"
+        is java.net.ConnectException -> "服务端未启动，或端口不可达（检查 IP、防火墙与 --host）"
+        is javax.net.ssl.SSLHandshakeException ->
+            "服务端没有启用 TLS：请把地址改成 http://<主机>:<端口>"
+        is javax.net.ssl.SSLException ->
+            "TLS 握手失败：服务端可能是明文 HTTP，请把地址改成 http://"
+        is java.io.IOException -> {
+            val text = error.message.orEmpty()
+            when {
+                text.contains("Cleartext HTTP traffic", ignoreCase = true) ->
+                    "系统禁止明文 HTTP：请安装 debug 包，或为服务端配置 HTTPS"
+                else -> text.ifBlank { "网络请求失败" }
+            }
+        }
         else -> error.message ?: "操作失败"
     }
 }

@@ -28,6 +28,7 @@ import com.endercraft.stotp.ui.components.LineIcon
 import com.endercraft.stotp.ui.components.Panel
 import com.endercraft.stotp.ui.components.PrimaryButton
 import com.endercraft.stotp.ui.components.ScreenTitle
+import com.endercraft.stotp.ui.components.SecondaryButton
 import com.endercraft.stotp.ui.components.StotpTextField
 import com.endercraft.stotp.ui.components.pressScale
 import com.endercraft.stotp.ui.theme.StotpColors
@@ -39,10 +40,12 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 fun ConnectScreen(
     server: String,
     deviceName: String,
+    preview: String,
     busy: Boolean,
     onServerChange: (String) -> Unit,
     onDeviceNameChange: (String) -> Unit,
     onContinue: () -> Unit,
+    onTest: () -> Unit,
     onBack: () -> Unit,
 ) {
     var localServer by remember(server) { mutableStateOf(server) }
@@ -90,6 +93,20 @@ fun ConnectScreen(
                     placeholder = "http://10.0.2.2:8787",
                     keyboardType = KeyboardType.Uri,
                 )
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "将连接 $preview",
+                    style = StotpType.Caption,
+                    color = StotpColors.TextTertiary,
+                )
+                if (localServer.trim().startsWith("https://")) {
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        "局域网地址通常没有 TLS；若连接失败，请把 https:// 改成 http://",
+                        style = StotpType.Caption,
+                        color = StotpColors.Heat,
+                    )
+                }
                 Spacer(Modifier.height(15.dp))
                 FieldLabel("设备名称")
                 StotpTextField(
@@ -103,6 +120,11 @@ fun ConnectScreen(
                     onClick = onContinue,
                     loading = busy,
                     enabled = localServer.isNotBlank(),
+                )
+                Spacer(Modifier.height(10.dp))
+                SecondaryButton(
+                    text = "测试连接",
+                    onClick = onTest,
                 )
             }
         }

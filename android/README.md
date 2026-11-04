@@ -81,6 +81,16 @@ android/app/src/main/java/com/endercraft/stotp/
 | --- | --- |
 | ![settings](../docs/screenshots/settings.png) | ![lock](../docs/screenshots/lock.png) |
 
+## 连接失败排查
+
+1. **地址写 `http://`，不要写 `https://`**：STOTP 服务端默认是明文 HTTP（TLS 由反向代理终止）。
+   在「连接服务器」页会实时显示「将连接 …」的实际地址；写成 https 时会出现橙色提示。
+2. 先点「测试连接」：它直接请求 `/healthz`，成功会显示版本与最终 URL，失败会区分
+   「端口不可达」「TLS 握手失败」「系统禁止明文 HTTP」。
+3. 报 `TLS 握手失败`/`服务端没有启用 TLS`：把地址改回 `http://<主机>:<端口>`，或给服务端配反向代理。
+4. 报 `系统禁止明文 HTTP`：装的是 release 包；请用 debug 包，或为服务端启用 HTTPS。
+5. 手机浏览器自测：打开 `http://<电脑 IP>:8787/healthz`，能返回 JSON 说明网络与端口没问题。
+
 ## 已知限制
 
 - 目前仅浅色主题（深色待后续 issue）。
