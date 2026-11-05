@@ -21,3 +21,10 @@ captures/
 .tmp/
 .DS_Store
 Thumbs.db
+
+# Auth Center
+auth-center/node_modules/
+auth-center/.next/
+auth-center/data/
+auth-center/next-env.d.ts
+auth-center/shots/

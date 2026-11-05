@@ -39,7 +39,8 @@ STOTP/
 │   ├── api.md               # HTTP API 参考
 │   └── security.md          # 威胁模型与抗枚举设计
 ├── server/                  # Python 3.11+ 服务端 + unittest 自检
-└── android/                 # Kotlin / Jetpack Compose 客户端
+├── android/                 # Kotlin / Jetpack Compose 客户端
+└── auth-center/             # Next.js OIDC 统一登录站 + SSO 管理台
 ```
 
 ## 快速开始
@@ -64,12 +65,27 @@ cd android
 
 Android 端默认连接 `http://10.0.2.2:8787`（模拟器映射到宿主机），也可在设置页修改服务端地址。
 
+### Auth Center（OIDC 登录站）
+
+```powershell
+cd auth-center
+npm install
+$env:AUTH_ADMIN_PASSWORD = "change-me-please"
+$env:AUTH_PUBLIC_URL = "http://127.0.0.1:3100"
+npm run dev
+# http://127.0.0.1:3100/login
+```
+
+独立的 OIDC/OAuth2 登录站：第三方应用创建 Client 后即可用授权码 + PKCE 接入；
+管理台提供应用管理、我的授权、用户管理与个人设置。详见 [`auth-center/README.md`](auth-center/README.md)。
+
 ## 文档
 
 - [系统架构](docs/architecture.md)
 - [密码学协议](docs/crypto-protocol.md)
 - [HTTP API](docs/api.md)
 - [安全设计](docs/security.md)
+- [Auth Center 接入文档](auth-center/README.md)
 
 ## 设计
 
@@ -97,6 +113,6 @@ Android 端默认连接 `http://10.0.2.2:8787`（模拟器映射到宿主机）�
 | 交付物 | 状态 |
 | --- | --- |
 | 技术文档 | ✅ 已交付 |
-| STOTP 服务端 | ✅ 已交付（14 个 unittest） |
+| STOTP 服务端 | ✅ 已交付（16 个 unittest） |
 | Android 客户端 | ✅ 已交付（模拟器全流程验证） |
-| OAuth2 登录站 | 不在本仓库（部署在运营方本地，通过 OAuth2 回调接入） |
+| Auth Center（OAuth2 登录站） | ✅ 已交付（OIDC + 管理台 + 端到端脚本） |
