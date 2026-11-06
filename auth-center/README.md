@@ -26,6 +26,24 @@ npm run dev          # http://127.0.0.1:3100
 首次启动会自动建库并创建管理员（默认 `admin`；密码取 `AUTH_ADMIN_PASSWORD`，未设置时开发环境为
 `admin1234`，生产环境随机生成并打印一次）。**上线前务必修改密码。**
 
+> 自动创建只在**用户表为空**时执行。如果库里已经有用户（例如注册过普通账号），改
+> `AUTH_ADMIN_PASSWORD` 不会新增管理员；用下面的 seed 命令创建或重置。
+
+### 创建 / 重置管理员
+
+```bash
+cd auth-center
+
+# 创建或重置 admin，密码用环境变量传入（推荐，避免留在 shell history）
+AUTH_ADMIN_PASSWORD='换成强密码' npm run seed
+
+# 或显式指定用户名/密码/邮箱
+npm run seed -- admin '换成强密码' admin@example.com
+```
+
+脚本会写入 `role=admin`、`status=active`、`permissions=["admin","user"]`；已存在的用户会被更新密码并提升为管理员。
+数据库位置按 `AUTH_DB_PATH` > `AUTH_DATA_DIR/auth.db` > `./data/auth.db` 的顺序解析。
+
 生产构建：
 
 ```powershell
