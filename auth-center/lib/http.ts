@@ -32,6 +32,34 @@ export async function readJson<T>(req: NextRequest): Promise<T> {
   }
 }
 
+export function isFormRequest(req: NextRequest): boolean {
+  return (req.headers.get("content-type") || "")
+    .toLowerCase()
+    .includes("application/x-www-form-urlencoded");
+}
+
+export async function readForm(req: NextRequest): Promise<Record<string, string>> {
+  try {
+    const data = await req.formData();
+    const result: Record<string, string> = {};
+    data.forEach((value, key) => {
+      result[key] = typeof value === "string" ? value : "";
+    });
+    return result;
+  } catch {
+    throw new HttpError(400, "invalid_request", "表单数据无法解析");
+  }
+}
+
+/** 仅允许站内绝对路径，防止 open redirect。 */
+export function safeNextPath(value: unknown, fallback = "/dashboard"): string {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) {
+    return fallback;
+  }
+  return raw;
+}
+
 export function clientIp(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
