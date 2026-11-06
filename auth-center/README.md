@@ -37,6 +37,18 @@ npm run start
 `npm run start` 只监听 `127.0.0.1:3100`，供同机 nginx 反代；需要局域网直连时用 `npm run start:lan`。
 `build` 和 `start` 前都会执行 Node 版本检查，版本不够会直接报错退出，而不是先显示 Ready 再崩。
 
+反向代理必须保留 Host，否则同源校验会报 `bad_origin`：
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3100;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Forwarded-Host  $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+}
+```
+
 ## 配置
 
 | 环境变量 | 默认值 | 说明 |
