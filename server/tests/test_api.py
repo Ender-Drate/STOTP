@@ -38,7 +38,7 @@ class ApiTest(unittest.TestCase):
             host="127.0.0.1", port=0,
             db_path=os.path.join(cls.tmp, "test.db"),
             key_dir=os.path.join(cls.tmp, "keys"),
-            dev_login=True, verify_budget_ms=0,
+            dev_login=True, login_verify=True, verify_budget_ms=0,
         )
         cfg.validate()
         cls.app = App(cfg)
@@ -90,6 +90,27 @@ class ApiTest(unittest.TestCase):
         status, raw = self.request("POST", "/v1/clients", body, self.token)
         self.assertEqual(status, 201, raw)
         return client_id, seed, epoch
+
+    def login_station(self):
+        """注册一个登录站 OAuth 客户端并换取 client_credentials 令牌。"""
+        status, raw = self.request("POST", "/oauth/register", {
+            "client_name": "Login Station",
+            "redirect_uris": ["https://login.example.com/callback"],
+            "grant_types": ["authorization_code", "refresh_token", "client_credentials"],
+            "scope": "openid profile stotp.verify",
+        })
+        self.assertEqual(status, 201, raw)
+        oauth_client = json.loads(raw)
+        form = (f"grant_type=client_credentials&client_id={oauth_client['client_id']}"
+                f"&client_secret={oauth_client['client_secret']}&scope=stotp.verify")
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        conn.request("POST", "/oauth/token", body=form,
+                     headers={"Content-Type": "application/x-www-form-urlencoded"})
+        resp = conn.getresponse()
+        token_data = json.loads(resp.read())
+        conn.close()
+        self.assertEqual(resp.status, 200, token_data)
+        return oauth_client, token_data["access_token"]
 
     # ---- tests ---------------------------------------------------------
 
@@ -173,32 +194,14 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(row["status"], "revoked")
 
     def test_client_credentials_assertion(self):
-        status, raw = self.request("POST", "/oauth/register", {
-            "client_name": "Login Site",
-            "redirect_uris": ["https://login.example.com/callback"],
-            "grant_types": ["authorization_code", "refresh_token", "client_credentials"],
-            "scope": "openid profile stotp.verify",
-        })
-        self.assertEqual(status, 201, raw)
-        oauth_client = json.loads(raw)
-        form = (f"grant_type=client_credentials&client_id={oauth_client['client_id']}"
-                f"&client_secret={oauth_client['client_secret']}&scope=stotp.verify")
-        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
-        conn.request("POST", "/oauth/token", body=form,
-                     headers={"Content-Type": "application/x-www-form-urlencoded"})
-        resp = conn.getresponse()
-        token_data = json.loads(resp.read())
-        conn.close()
-        self.assertIn("access_token", token_data)
-
+        oauth_client, token = self.login_station()
         client_id, seed, epoch = self.register()
         code = crypto.totp(crypto.derive_key(seed, client_id, crypto.TOTP_LABEL, 20))
         body = {"client_id": client_id, "epoch": epoch,
                 "uuid": crypto.derive_uuid(crypto.derive_key(
                     seed, client_id, crypto.UUID_LABEL), client_id, epoch),
                 "code": code}
-        status, raw = self.request("POST", "/v1/verify", body,
-                                   token_data["access_token"])
+        status, raw = self.request("POST", "/v1/verify", body, token)
         self.assertEqual(status, 200)
         payload = json.loads(raw)
         self.assertEqual(payload["mode"], "assertion")
@@ -208,6 +211,65 @@ class ApiTest(unittest.TestCase):
         claims = crypto.jwt_decode(payload["assertion"], assert_key)
         self.assertEqual(claims["result"], "allow")
         self.assertEqual(claims["aud"], oauth_client["client_id"])
+
+    def test_login_verify_computes_epoch_uuid(self):
+        oauth_client, token = self.login_station()
+        client_id, seed, epoch = self.register()
+        code = crypto.totp(crypto.derive_key(seed, client_id, crypto.TOTP_LABEL, 20))
+        assert_key = crypto.hkdf(oauth_client["client_secret"].encode(),
+                                 oauth_client["client_id"].encode(),
+                                 crypto.ASSERT_LABEL.encode(), 32)
+
+        status, raw = self.request("POST", "/v1/login/verify",
+                                   {"client_id": client_id, "code": code}, token)
+        self.assertEqual(status, 200)
+        payload = json.loads(raw)
+        self.assertEqual(payload["mode"], "assertion")
+        claims = crypto.jwt_decode(payload["assertion"], assert_key)
+        self.assertEqual(claims["result"], "allow", claims)
+        self.assertEqual(claims["aud"], oauth_client["client_id"])
+
+        # 错误验证码：仍然 200 / deny / 与 allow 等长
+        status, denied = self.request("POST", "/v1/login/verify",
+                                      {"client_id": client_id, "code": "000000"}, token)
+        self.assertEqual(status, 200)
+        self.assertEqual(len(denied), len(raw))
+        claims = crypto.jwt_decode(json.loads(denied)["assertion"], assert_key)
+        self.assertEqual(claims["result"], "deny")
+
+        # 未知客户端：仍然 200 / deny / 等长
+        status, unknown = self.request("POST", "/v1/login/verify",
+                                       {"client_id": str(uuid.uuid4()), "code": code}, token)
+        self.assertEqual(status, 200)
+        self.assertEqual(len(unknown), len(raw))
+        claims = crypto.jwt_decode(json.loads(unknown)["assertion"], assert_key)
+        self.assertEqual(claims["result"], "deny")
+
+        # 同一个验证码第二次必须 replay deny
+        status, replay = self.request("POST", "/v1/login/verify",
+                                      {"client_id": client_id, "code": code}, token)
+        self.assertEqual(status, 200)
+        claims = crypto.jwt_decode(json.loads(replay)["assertion"], assert_key)
+        self.assertEqual(claims["result"], "deny")
+        self.assertEqual(claims["reason"], "replay")
+
+    def test_login_verify_rejects_user_token(self):
+        _, _ = self.login_station()
+        client_id, _, _ = self.register()
+        status, raw = self.request("POST", "/v1/login/verify",
+                                   {"client_id": client_id, "code": "000000"}, self.token)
+        self.assertEqual(status, 403, raw)
+
+    def test_login_verify_disabled_returns_404(self):
+        _, token = self.login_station()
+        client_id, _, _ = self.register()
+        self.app.cfg.login_verify = False
+        try:
+            status, raw = self.request("POST", "/v1/login/verify",
+                                       {"client_id": client_id, "code": "000000"}, token)
+            self.assertEqual(status, 404, raw)
+        finally:
+            self.app.cfg.login_verify = True
 
     def test_dev_login_page_renders(self):
         status, raw = self.request("GET", "/login")

@@ -21,6 +21,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--public-url", default=None, help="对外基础 URL（发现文档使用）")
     parser.add_argument("--dev-login", action="store_true", default=None,
                         help="启用内置联调登录页")
+    parser.add_argument("--login-verify", action="store_true", default=None,
+                        help="启用登录站代算验证接口（/v1/login/verify）")
     parser.add_argument("--require-tls", action="store_true", default=None,
                         help="拒绝非 HTTPS 请求（反向代理后开启）")
     parser.add_argument("--trust-proxy", action="store_true", default=None,
@@ -41,6 +43,7 @@ def build_config(args: argparse.Namespace) -> Config:
         "db_path": args.db,
         "public_url": args.public_url,
         "dev_login": args.dev_login,
+        "login_verify": args.login_verify,
         "require_tls": args.require_tls,
         "trust_proxy": args.trust_proxy,
         "epoch_seconds": args.epoch_seconds,

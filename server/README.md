@@ -29,6 +29,7 @@ curl.exe http://127.0.0.1:8787/healthz
 | `STOTP_DB` / `--db` | `data/stotp.db` | SQLite 路径（WAL） |
 | `STOTP_PUBLIC_URL` / `--public-url` | `http://host:port` | 发现文档与令牌 `iss` 的对外地址 |
 | `STOTP_DEV_LOGIN` / `--dev-login` | 关 | 启用内置登录页 |
+| `STOTP_LOGIN_VERIFY` / `--login-verify` | 关 | 启用登录站代算验证接口 `POST /v1/login/verify`（仅机密客户端） |
 | `STOTP_REQUIRE_TLS` / `--require-tls` | 关 | 强制 `X-Forwarded-Proto: https`，否则 400；响应加 HSTS |
 | `STOTP_TRUST_PROXY` / `--trust-proxy` | 关 | 信任 `X-Forwarded-For` |
 | `STOTP_EPOCH_SECONDS` | `3600` | UUID 轮换周期 |
@@ -72,6 +73,7 @@ python -m unittest discover -s tests -v
 - 完整 HTTP 流程：注册客户端 → 取 epoch → sealed 校验（通过/错误码/未知客户端等长响应）→ 重放拒绝 →
   强制轮换后旧 epoch 拒绝 → 描述文件证明不符触发 revoked。
 - 客户端凭证 + assertion 模式：动态注册登录站 → `client_credentials` → 验证 → 用派生密钥验签。
+- 登录站代算验证：`/v1/login/verify` 只传 `client_id + code`，服务端代算 epoch/uuid；关闭时返回 404。
 
 ## 手工联调
 

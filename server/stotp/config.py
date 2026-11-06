@@ -50,6 +50,7 @@ class Config:
     db_path: str = "data/stotp.db"
     public_url: str | None = None
     dev_login: bool = False
+    login_verify: bool = False
     require_tls: bool = False
     trust_proxy: bool = False
     epoch_seconds: int = 3600
@@ -70,6 +71,8 @@ class Config:
             db_path=overrides.get("db_path", os.environ.get("STOTP_DB", "data/stotp.db")),
             public_url=overrides.get("public_url", os.environ.get("STOTP_PUBLIC_URL")),
             dev_login=bool(overrides.get("dev_login", os.environ.get("STOTP_DEV_LOGIN") == "1")),
+            login_verify=bool(overrides.get(
+                "login_verify", os.environ.get("STOTP_LOGIN_VERIFY") == "1")),
             require_tls=bool(overrides.get("require_tls", os.environ.get("STOTP_REQUIRE_TLS") == "1")),
             trust_proxy=bool(overrides.get("trust_proxy", os.environ.get("STOTP_TRUST_PROXY") == "1")),
             epoch_seconds=int(overrides.get("epoch_seconds", os.environ.get("STOTP_EPOCH_SECONDS", 3600))),
