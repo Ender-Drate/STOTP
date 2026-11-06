@@ -22,8 +22,16 @@ export interface User {
   last_login_at: string | null;
 }
 
-export interface OAuthClient {
-  id: number;
+export interface StotpBinding {
+  user_id: number;
+  client_id: string;
+  account_id: string | null;
+  status: string;
+  created_at: string;
+  last_verified_at: string | null;
+}
+
+export interface OAuthClient {  id: number;
   client_id: string;
   client_secret_hash: string | null;
   name: string;
@@ -130,8 +138,29 @@ CREATE TABLE IF NOT EXISTS audit (
   detail TEXT
 );
 
+CREATE TABLE IF NOT EXISTS stotp_bindings (
+  user_id INTEGER PRIMARY KEY,
+  client_id TEXT NOT NULL UNIQUE,
+  account_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  last_verified_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS login_challenges (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  ttl_seconds INTEGER NOT NULL,
+  ip TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  used INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_tokens_client ON tokens(client_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_challenges_expiry ON login_challenges(expires_at);
 `;
 
 const globalForDb = globalThis as unknown as { __authCenterDb?: DatabaseSync };

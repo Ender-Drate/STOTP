@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PUBLIC_URL, SESSION_TTL_SECONDS } from "@/lib/config";
+import { PUBLIC_URL, SESSION_TTL_SECONDS, STOTP_ENABLED } from "@/lib/config";
 import { verifyPassword } from "@/lib/crypto";
 import { audit, findUserByUsername, getDb, nowIso } from "@/lib/db";
 import {
@@ -15,6 +15,9 @@ import {
 } from "@/lib/http";
 import { createSession, sessionCookieOptions } from "@/lib/session";
 import { publicUser } from "@/lib/users";
+import { getBinding } from "@/lib/stotp-store";
+import { createChallenge } from "@/lib/login-challenge";
+import { stotpEnforce } from "@/lib/stotp";
 
 export const runtime = "nodejs";
 
@@ -29,6 +32,13 @@ function loginRedirect(next: string, error?: string): NextResponse {
   const url = new URL("/login", PUBLIC_URL);
   url.searchParams.set("next", next);
   if (error) url.searchParams.set("error", error);
+  return NextResponse.redirect(url, 303);
+}
+
+function otpRedirect(next: string, ticket: string): NextResponse {
+  const url = new URL("/login/otp", PUBLIC_URL);
+  url.searchParams.set("ticket", ticket);
+  url.searchParams.set("next", next);
   return NextResponse.redirect(url, 303);
 }
 
@@ -57,6 +67,28 @@ export async function POST(req: NextRequest) {
     }
     const remember = body.remember === true || body.remember === "1" || body.remember === "on";
     const ttl = remember ? 30 * 24 * 3600 : SESSION_TTL_SECONDS;
+    const binding = getBinding(user.id);
+    const enforcement = stotpEnforce();
+    if (binding && enforcement !== "off" && !STOTP_ENABLED) {
+      throw new HttpError(503, "stotp_unavailable", "STOTP 配置缺失，暂时无法登录");
+    }
+    if (enforcement === "all" && !binding) {
+      throw new HttpError(403, "stotp_binding_required", "请先在设置中绑定 STOTP 设备后再登录");
+    }
+    if (enforcement !== "off" && binding) {
+      const { ticket, expiresIn } = createChallenge(user.id, ttl, clientIp(req));
+      audit("stotp_login_challenge", {
+        userId: user.id, clientId: binding.client_id, ip: clientIp(req),
+      });
+      if (formMode) return otpRedirect(next, ticket);
+      return NextResponse.json({
+        ok: false,
+        otp_required: true,
+        ticket,
+        expires_in: expiresIn,
+        next,
+      });
+    }
     const token = createSession(user.id, ttl);
     getDb().prepare("UPDATE users SET last_login_at = ? WHERE id = ?").run(nowIso(), user.id);
     audit("login", { userId: user.id, ip: clientIp(req) });

@@ -1,12 +1,16 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
 import { ProfileForms } from "@/app/components/ProfileForms";
+import { StotpPanel } from "@/app/components/StotpPanel";
+import { bindingView, getBinding } from "@/lib/stotp-store";
+import { stotpConfigured, stotpEnforce } from "@/lib/stotp";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const user = await currentUser();
   if (!user) redirect("/login?next=/dashboard/settings");
+  const binding = getBinding(user.id);
   return (
     <>
       <div className="page-head">
@@ -25,6 +29,11 @@ export default async function SettingsPage() {
           role: user.role,
           createdAt: user.created_at,
         }}
+      />
+      <StotpPanel
+        binding={binding ? bindingView(binding) : null}
+        enabled={stotpConfigured()}
+        enforce={stotpEnforce()}
       />
     </>
   );

@@ -15,3 +15,19 @@ export const ACCESS_TOKEN_TTL = 15 * 60;
 export const REFRESH_TOKEN_TTL = 30 * 24 * 3600;
 export const AUTH_CODE_TTL = 10 * 60;
 export const CONSENT_TTL = 180 * 24 * 3600;
+
+const stotpBase = (process.env.STOTP_BASE_URL || "").replace(/\/+$/, "");
+const stotpClientId = process.env.STOTP_LOGIN_CLIENT_ID || "";
+const stotpClientSecret = process.env.STOTP_LOGIN_CLIENT_SECRET || "";
+const enforceRaw = process.env.STOTP_ENFORCE || "bound";
+
+export const STOTP_BASE_URL = stotpBase;
+export const STOTP_LOGIN_CLIENT_ID = stotpClientId;
+export const STOTP_LOGIN_CLIENT_SECRET = stotpClientSecret;
+export const STOTP_TIMEOUT_MS = Number(process.env.STOTP_TIMEOUT_MS || 5000);
+export const STOTP_ENFORCE = (["off", "bound", "all"].includes(enforceRaw)
+  ? enforceRaw : "bound") as "off" | "bound" | "all";
+export const STOTP_ENABLED = Boolean(
+  stotpBase && stotpClientId && stotpClientSecret
+);
+

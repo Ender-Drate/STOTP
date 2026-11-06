@@ -6,6 +6,7 @@
 - Scope：`openid`、`profile`、`email`、`head`（头像）、`permission`（权限节点）、`offline_access`。
 - 管理台：概览、OAuth2 应用（创建/编辑/密钥轮换/启停/删除）、我的授权（撤销）、用户管理（角色/状态）、个人设置。
 - 登录站：登录、注册、授权同意页、退出；密码使用 scrypt 哈希，会话保存在服务端。
+- **STOTP 两步验证（可选）**：绑定设备后，登录需要密码 + STOTP App 的 6 位验证码；注册流程不变，未绑定用户仍可密码登录。
 
 技术栈：Next.js 16（App Router）+ React 19 + Node 内置 `node:sqlite`，无外部数据库依赖。
 
@@ -77,12 +78,69 @@ location / {
 | `AUTH_ADMIN_USERNAME` | `admin` | 首次启动创建的管理员用户名 |
 | `AUTH_ADMIN_EMAIL` | `admin@localhost` | 管理员邮箱 |
 | `AUTH_ADMIN_PASSWORD` | 见上 | 管理员初始密码 |
+| `STOTP_BASE_URL` | 空 | STOTP 服务端内部地址，如 `http://127.0.0.1:8787`；为空则关闭两步验证 |
+| `STOTP_LOGIN_CLIENT_ID` | 空 | 在 STOTP `/oauth/register` 注册的**登录站** OAuth client_id（`srv_...`） |
+| `STOTP_LOGIN_CLIENT_SECRET` | 空 | 上述登录站客户端的 secret，用于换 token 和验 assertion |
+| `STOTP_ENFORCE` | `bound` | `off` / `bound`（仅绑定用户要码）/ `all`（所有用户必须绑定） |
+| `STOTP_TIMEOUT_MS` | `5000` | 调用 STOTP 服务端的超时 |
 | `PORT` | `3100` | `npm run dev/start` 已固定 3100，可自行改脚本 |
 
 数据目录包含：
 
 - `data/auth.db`：用户、OAuth 应用、授权码、令牌、会话、授权记录、审计。
 - `data/oidc-keys.json`：RSA 私钥（0600），用于 RS256 签名；**不要提交或泄露**。
+
+## STOTP 两步验证（可选）
+
+默认策略是 `bound`：**只有已绑定设备的用户**在密码之后需要 6 位验证码；未绑定用户、注册流程完全不变。
+绑定入口在「设置 → STOTP 两步验证」。
+
+### 1. STOTP 服务端开启登录站接口
+
+```bash
+# /etc/stotp/stotp.env
+STOTP_LOGIN_VERIFY=1
+```
+
+对应接口是 `POST /v1/login/verify`，只接受登录站 `client_credentials` 令牌；详见 `docs/api.md` §4.2。
+
+### 2. 在 STOTP 注册登录站客户端
+
+```bash
+curl -s -X POST http://127.0.0.1:8787/oauth/register \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "client_name": "STOTP Auth Center",
+    "redirect_uris": ["https://auth.example.com/"],
+    "grant_types": ["client_credentials"],
+    "scope": "stotp.verify"
+  }'
+```
+
+响应里的 `client_id` / `client_secret` 只显示一次，保存到 auth-center 的环境变量。
+
+### 3. auth-center 环境变量
+
+```bash
+STOTP_BASE_URL=http://127.0.0.1:8787
+STOTP_LOGIN_CLIENT_ID=srv_...
+STOTP_LOGIN_CLIENT_SECRET=cs_...
+STOTP_ENFORCE=bound
+```
+
+重启 auth-center 后，设置页会出现绑定表单。用户输入 STOTP App 设备详情里的 `client_id` 和当前 6 位码，
+验证通过才落库；一个设备只能绑定一个账号。
+
+### 4. 登录行为
+
+| `STOTP_ENFORCE` | 未绑定用户 | 已绑定用户 |
+| --- | --- | --- |
+| `bound`（默认） | 密码登录 | 密码 + 验证码 |
+| `all` | 拒绝登录，提示先绑定 | 密码 + 验证码 |
+| `off` | 密码登录 | 密码登录（临时关闭） |
+
+已绑定用户遇到 STOTP 不可达、assertion 验签失败或超时 → 拒绝登录（fail closed）；未绑定用户不受影响。
+管理员可在「用户管理」查看绑定状态并解绑。
 
 ## 第三方接入
 
@@ -123,6 +181,8 @@ GET {AUTH_PUBLIC_URL}/api/oauth/authorize
 - Access Token 15 分钟（RS256 JWT），Refresh Token 30 天且每次刷新轮换。
 - Client Secret 只存 SHA-256；用户密码 scrypt + 随机盐。
 - 登录/注册按 IP 限速；管理 API 校验同源 Origin；Cookie `HttpOnly` + `SameSite=Lax`，HTTPS 部署自动加 `Secure`。
+- STOTP 两步验证：assertion 用 `HKDF(client_secret, "stotp/assertion/v1")` 验 HS256，并校验 `aud/exp/client_id`；
+  登录 challenge 5 分钟一次性、最多 5 次尝试，绑定设备全局唯一。
 - 禁用用户会删除其会话并撤销令牌；修改密码会踢掉其它会话。
 - 生产部署请放在 TLS 反向代理后，并把 `AUTH_PUBLIC_URL` 设为 `https://...`。
 
@@ -142,6 +202,15 @@ npm run e2e
 `e2e` 覆盖：注册、管理员登录、创建应用、授权同意、code 换 token、id_token、userinfo、
 refresh 轮换、revoke、公共客户端 PKCE、JWKS、删除应用。
 
+STOTP 两步验证用 mock 服务端做独立端到端（会自动启动临时 auth-center，不污染现有数据库）：
+
+```bash
+npm run e2e:stotp
+```
+
+覆盖：无绑定密码登录、绑定错误码/正确码、登录 `otp_required`、错误 OTP、正确 OTP、ticket 单次使用、
+assertion 篡改/错误 aud/过期、重复绑定、用户解绑、管理员解绑、STOTP 不可达 fail closed。
+
 ## 截图
 
 | 概览 | OAuth2 应用 |
@@ -152,8 +221,12 @@ refresh 轮换、revoke、公共客户端 PKCE、JWKS、删除应用。
 | --- | --- |
 | ![login](docs/screenshots/login.png) | ![consent](docs/screenshots/consent.png) |
 
+| STOTP 两步验证 | 设置中绑定 |
+| --- | --- |
+| ![otp](docs/screenshots/stotp-otp.png) | ![settings](docs/screenshots/stotp-settings.png) |
+
 ## 已知限制
 
-- 未做邮箱验证、找回密码、TOTP/Passkey、第三方账号绑定（可后续接入）。
+- 未做邮箱验证、找回密码、Passkey、第三方账号绑定；STOTP 两步验证是可选项，默认不强制。
 - 单节点 SQLite；多实例需替换 `lib/db.ts` 为共享数据库。
 - 权限节点目前由管理员在数据库层面维护，管理台只展示；后续可加权限编辑。

@@ -28,6 +28,11 @@ export function LoginForm({ next, initialError = "" }: {
         body: JSON.stringify({ username: identifier, password, remember, next }),
       });
       const data = await res.json().catch(() => null);
+      if (data?.otp_required && data?.ticket) {
+        const query = new URLSearchParams({ ticket: String(data.ticket), next });
+        window.location.assign(`/login/otp?${query.toString()}`);
+        return;
+      }
       if (!res.ok) {
         setError(errorOf(data, "登录失败"));
         return;
@@ -74,11 +79,68 @@ export function LoginForm({ next, initialError = "" }: {
   );
 }
 
+export function OtpForm({ ticket, next, initialError = "" }: {
+  ticket: string;
+  next: string;
+  initialError?: string;
+}) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState(initialError);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const res = await fetch("/api/auth/login/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket, code, next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(errorOf(data, "验证失败"));
+        return;
+      }
+      window.location.assign(next || "/dashboard");
+    } catch {
+      setError("网络错误，请重试");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form method="post" action="/api/auth/login/otp" onSubmit={submit}>
+      <input type="hidden" name="ticket" value={ticket} />
+      <input type="hidden" name="next" value={next} />
+      {error ? <div className="auth-error">{error}</div> : null}
+      <div className="field">
+        <label className="label" htmlFor="otp">STOTP 验证码</label>
+        <input
+          id="otp" name="code" className="input otp-input" inputMode="numeric"
+          autoComplete="one-time-code" autoFocus maxLength={6} pattern="[0-9]{6}"
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="000000" required
+        />
+      </div>
+      <p className="small muted" style={{ margin: "4px 0 0" }}>
+        打开 STOTP App 查看当前 6 位验证码，30 秒刷新一次。
+      </p>
+      <button type="submit" className="btn btn-primary"
+        style={{ width: "100%", height: 42, marginTop: 16 }} disabled={busy}>
+        {busy ? "验证中…" : "验证并登录"}
+      </button>
+    </form>
+  );
+}
+
 export function RegisterForm({ next = "/dashboard", initialError = "" }: {
   next?: string;
   initialError?: string;
-}) {
-  const [form, setForm] = useState({
+}) {  const [form, setForm] = useState({
     displayName: "", username: "", email: "", password: "", confirm: "",
   });
   const [error, setError] = useState(initialError);
