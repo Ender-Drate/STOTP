@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_TTL_SECONDS } from "@/lib/config";
+import { PUBLIC_URL, SESSION_TTL_SECONDS } from "@/lib/config";
 import { hashPassword } from "@/lib/crypto";
 import { audit, findUserByUsername, getDb, nowIso } from "@/lib/db";
-import { assertSameOrigin, clientIp, errorResponse, HttpError, rateLimit, readJson } from "@/lib/http";
+import {
+  assertSameOrigin,
+  clientIp,
+  errorResponse,
+  HttpError,
+  isFormRequest,
+  rateLimit,
+  readForm,
+  readJson,
+  safeNextPath,
+} from "@/lib/http";
 import { createSession, sessionCookieOptions } from "@/lib/session";
 import { publicUser } from "@/lib/users";
 import { email, username } from "@/lib/validators";
@@ -14,15 +24,26 @@ interface Body {
   email?: string;
   password?: string;
   displayName?: string;
+  next?: string;
+}
+
+function registerRedirect(next: string, error?: string): NextResponse {
+  const url = new URL("/register", PUBLIC_URL);
+  url.searchParams.set("next", next);
+  if (error) url.searchParams.set("error", error);
+  return NextResponse.redirect(url, 303);
 }
 
 export async function POST(req: NextRequest) {
+  const formMode = isFormRequest(req);
+  let next = "/dashboard";
   try {
     assertSameOrigin(req);
+    const body: Body = formMode ? await readForm(req) : await readJson<Body>(req);
+    next = safeNextPath(body.next);
     if (!rateLimit(`register:${clientIp(req)}`, 10, 3600)) {
       throw new HttpError(429, "rate_limited", "注册过于频繁，请稍后再试");
     }
-    const body = await readJson<Body>(req);
     const name = username(body.username);
     const mail = email(body.email);
     const pass = typeof body.password === "string" ? body.password : "";
@@ -43,11 +64,20 @@ export async function POST(req: NextRequest) {
     const token = createSession(userId, SESSION_TTL_SECONDS);
     audit("user_register", { userId, ip: clientIp(req) });
     const user = getDb().prepare("SELECT * FROM users WHERE id = ?").get(userId);
-    const res = NextResponse.json({ ok: true, user: publicUser(user as never) });
     const options = sessionCookieOptions(SESSION_TTL_SECONDS);
+    if (formMode) {
+      const res = NextResponse.redirect(new URL(next, PUBLIC_URL), 303);
+      res.cookies.set(options.name, token, options);
+      return res;
+    }
+    const res = NextResponse.json({ ok: true, user: publicUser(user as never) });
     res.cookies.set(options.name, token, options);
     return res;
   } catch (error) {
+    if (formMode) {
+      const message = error instanceof HttpError ? error.message : "注册失败，请重试";
+      return registerRedirect(next, message);
+    }
     return errorResponse(error);
   }
 }
