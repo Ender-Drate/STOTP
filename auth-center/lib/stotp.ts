@@ -2,7 +2,6 @@ import { createHmac, hkdfSync, timingSafeEqual } from "node:crypto";
 import {
   STOTP_BASE_URL,
   STOTP_ENABLED,
-  STOTP_ENFORCE,
   STOTP_LOGIN_CLIENT_ID,
   STOTP_LOGIN_CLIENT_SECRET,
   STOTP_TIMEOUT_MS,
@@ -20,13 +19,9 @@ const globalForStotp = globalThis as unknown as {
   __stotpToken?: { token: string; expiresAt: number };
 };
 
-/** 未配置时返回 false，调用方应保持原密码登录行为。 */
+/** 未配置时返回 false；未绑定用户仍然走原密码登录，已绑定用户会 fail closed。 */
 export function stotpConfigured(): boolean {
-  return STOTP_ENABLED && STOTP_ENFORCE !== "off";
-}
-
-export function stotpEnforce(): "off" | "bound" | "all" {
-  return STOTP_ENFORCE;
+  return STOTP_ENABLED;
 }
 
 function assertionKey(): Buffer {

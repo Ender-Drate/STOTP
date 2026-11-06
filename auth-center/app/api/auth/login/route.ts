@@ -17,7 +17,6 @@ import { createSession, sessionCookieOptions } from "@/lib/session";
 import { publicUser } from "@/lib/users";
 import { getBinding } from "@/lib/stotp-store";
 import { createChallenge } from "@/lib/login-challenge";
-import { stotpEnforce } from "@/lib/stotp";
 
 export const runtime = "nodejs";
 
@@ -68,14 +67,10 @@ export async function POST(req: NextRequest) {
     const remember = body.remember === true || body.remember === "1" || body.remember === "on";
     const ttl = remember ? 30 * 24 * 3600 : SESSION_TTL_SECONDS;
     const binding = getBinding(user.id);
-    const enforcement = stotpEnforce();
-    if (binding && enforcement !== "off" && !STOTP_ENABLED) {
+    if (binding && !STOTP_ENABLED) {
       throw new HttpError(503, "stotp_unavailable", "STOTP 配置缺失，暂时无法登录");
     }
-    if (enforcement === "all" && !binding) {
-      throw new HttpError(403, "stotp_binding_required", "请先在设置中绑定 STOTP 设备后再登录");
-    }
-    if (enforcement !== "off" && binding) {
+    if (binding) {
       const { ticket, expiresIn } = createChallenge(user.id, ttl, clientIp(req));
       audit("stotp_login_challenge", {
         userId: user.id, clientId: binding.client_id, ip: clientIp(req),

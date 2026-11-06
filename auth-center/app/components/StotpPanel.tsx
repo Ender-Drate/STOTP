@@ -11,10 +11,9 @@ interface Binding {
   lastVerifiedAt: string | null;
 }
 
-export function StotpPanel({ binding, enabled, enforce }: {
+export function StotpPanel({ binding, enabled }: {
   binding: Binding | null;
   enabled: boolean;
-  enforce: "off" | "bound" | "all";
 }) {
   const router = useRouter();
   const [clientId, setClientId] = useState(binding?.clientId || "");
@@ -78,7 +77,6 @@ export function StotpPanel({ binding, enabled, enforce }: {
       </div>
       <p className="small muted" style={{ margin: "0 0 16px" }}>
         绑定后登录需要密码 + STOTP App 的 6 位验证码；这是可选项，未绑定时仍可密码登录。
-        {enforce === "all" ? " 当前策略要求所有账号绑定后才能登录。" : ""}
       </p>
       {msg ? (
         <div className={`notice ${msg.ok ? "notice-ok" : "notice-error"}`}>{msg.text}</div>

@@ -78,10 +78,9 @@ location / {
 | `AUTH_ADMIN_USERNAME` | `admin` | 首次启动创建的管理员用户名 |
 | `AUTH_ADMIN_EMAIL` | `admin@localhost` | 管理员邮箱 |
 | `AUTH_ADMIN_PASSWORD` | 见上 | 管理员初始密码 |
-| `STOTP_BASE_URL` | 空 | STOTP 服务端内部地址，如 `http://127.0.0.1:8787`；为空则关闭两步验证 |
+| `STOTP_BASE_URL` | 空 | STOTP 服务端内部地址，如 `http://127.0.0.1:8787`；为空则无法绑定，已绑定用户会 fail closed |
 | `STOTP_LOGIN_CLIENT_ID` | 空 | 在 STOTP `/oauth/register` 注册的**登录站** OAuth client_id（`srv_...`） |
 | `STOTP_LOGIN_CLIENT_SECRET` | 空 | 上述登录站客户端的 secret，用于换 token 和验 assertion |
-| `STOTP_ENFORCE` | `bound` | `off` / `bound`（仅绑定用户要码）/ `all`（所有用户必须绑定） |
 | `STOTP_TIMEOUT_MS` | `5000` | 调用 STOTP 服务端的超时 |
 | `PORT` | `3100` | `npm run dev/start` 已固定 3100，可自行改脚本 |
 
@@ -92,8 +91,8 @@ location / {
 
 ## STOTP 两步验证（可选）
 
-默认策略是 `bound`：**只有已绑定设备的用户**在密码之后需要 6 位验证码；未绑定用户、注册流程完全不变。
-绑定入口在「设置 → STOTP 两步验证」。
+默认行为是固定的：**只有已绑定设备的用户**在密码之后需要 6 位验证码；未绑定用户、注册流程完全不变。
+没有“强制所有人绑定”或“全局关闭”的开关；绑定入口在「设置 → STOTP 两步验证」。
 
 ### 1. STOTP 服务端开启登录站接口
 
@@ -125,7 +124,6 @@ curl -s -X POST http://127.0.0.1:8787/oauth/register \
 STOTP_BASE_URL=http://127.0.0.1:8787
 STOTP_LOGIN_CLIENT_ID=srv_...
 STOTP_LOGIN_CLIENT_SECRET=cs_...
-STOTP_ENFORCE=bound
 ```
 
 重启 auth-center 后，设置页会出现绑定表单。用户输入 STOTP App 设备详情里的 `client_id` 和当前 6 位码，
@@ -133,14 +131,10 @@ STOTP_ENFORCE=bound
 
 ### 4. 登录行为
 
-| `STOTP_ENFORCE` | 未绑定用户 | 已绑定用户 |
-| --- | --- | --- |
-| `bound`（默认） | 密码登录 | 密码 + 验证码 |
-| `all` | 拒绝登录，提示先绑定 | 密码 + 验证码 |
-| `off` | 密码登录 | 密码登录（临时关闭） |
-
-已绑定用户遇到 STOTP 不可达、assertion 验签失败或超时 → 拒绝登录（fail closed）；未绑定用户不受影响。
-管理员可在「用户管理」查看绑定状态并解绑。
+- 未绑定：密码登录。
+- 已绑定：密码 + 6 位验证码。
+- 已绑定用户遇到 STOTP 不可达、assertion 验签失败或超时 → 拒绝登录（fail closed）；未绑定用户不受影响。
+- 管理员可在「用户管理」查看绑定状态并解绑。
 
 ## 第三方接入
 

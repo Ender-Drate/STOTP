@@ -83,7 +83,6 @@ const env = {
   STOTP_BASE_URL: mock.url,
   STOTP_LOGIN_CLIENT_ID: "srv_mock",
   STOTP_LOGIN_CLIENT_SECRET: "cs_mock_secret",
-  STOTP_ENFORCE: "bound",
   STOTP_TIMEOUT_MS: "2000",
 };
 const child = spawn(process.execPath,
