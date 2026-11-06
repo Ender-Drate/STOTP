@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PUBLIC_URL } from "./config";
 
 export class HttpError extends Error {
   status: number;
@@ -84,13 +85,25 @@ export function rateLimit(key: string, max: number, windowSeconds: number): bool
 export function assertSameOrigin(req: NextRequest) {
   const origin = req.headers.get("origin");
   if (!origin) return;
-  const host = req.headers.get("host");
+  let originHost: string;
   try {
-    if (new URL(origin).host !== host) {
-      throw new HttpError(403, "bad_origin", "跨站请求被拒绝");
-    }
+    originHost = new URL(origin).host;
   } catch {
     throw new HttpError(403, "bad_origin", "Origin 不合法");
+  }
+  const allowed = new Set<string>();
+  const host = req.headers.get("host");
+  if (host) allowed.add(host);
+  // nginx 可能没把 Host 改成对外域名；X-Forwarded-Host 和 AUTH_PUBLIC_URL 都可作为可信来源
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  if (forwardedHost) allowed.add(forwardedHost.split(",")[0].trim());
+  try {
+    allowed.add(new URL(PUBLIC_URL).host);
+  } catch {
+    // AUTH_PUBLIC_URL 非法时交给启动/请求逻辑暴露，不在这里放大
+  }
+  if (!allowed.has(originHost)) {
+    throw new HttpError(403, "bad_origin", "跨站请求被拒绝");
   }
 }
 
