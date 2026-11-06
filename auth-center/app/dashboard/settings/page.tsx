@@ -3,7 +3,7 @@ import { currentUser } from "@/lib/session";
 import { ProfileForms } from "@/app/components/ProfileForms";
 import { StotpPanel } from "@/app/components/StotpPanel";
 import { bindingView, getBinding } from "@/lib/stotp-store";
-import { stotpConfigured, stotpEnforce } from "@/lib/stotp";
+import { stotpConfigured } from "@/lib/stotp";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,6 @@ export default async function SettingsPage() {
       <StotpPanel
         binding={binding ? bindingView(binding) : null}
         enabled={stotpConfigured()}
-        enforce={stotpEnforce()}
       />
     </>
   );
