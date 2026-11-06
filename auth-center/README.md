@@ -9,6 +9,10 @@
 
 技术栈：Next.js 16（App Router）+ React 19 + Node 内置 `node:sqlite`，无外部数据库依赖。
 
+> **Node 版本**：必须 **>= 22.13**，推荐 **Node 24 LTS**。`node:sqlite` 是 Node 22.5 才引入的
+> 内置模块，旧版本会在 Next.js 显示 Ready 后、请求页面时报
+> `ERR_UNKNOWN_BUILTIN_MODULE: No such built-in module: node:sqlite`。
+
 ## 快速开始
 
 ```powershell
@@ -29,6 +33,9 @@ npm run build
 $env:NODE_ENV = "production"
 npm run start
 ```
+
+`npm run start` 只监听 `127.0.0.1:3100`，供同机 nginx 反代；需要局域网直连时用 `npm run start:lan`。
+`build` 和 `start` 前都会执行 Node 版本检查，版本不够会直接报错退出，而不是先显示 Ready 再崩。
 
 ## 配置
 
