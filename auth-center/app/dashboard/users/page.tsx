@@ -18,6 +18,12 @@ export default async function UsersPage() {
   }
   const users = getDb().prepare("SELECT * FROM users ORDER BY id DESC")
     .all() as unknown as User[];
+  const bindings = new Map<number, string>();
+  for (const row of getDb().prepare(
+    "SELECT user_id, client_id FROM stotp_bindings WHERE status = 'active'"
+  ).all() as Array<{ user_id: number; client_id: string }>) {
+    bindings.set(row.user_id, row.client_id);
+  }
 
   return (
     <>
@@ -34,10 +40,11 @@ export default async function UsersPage() {
               <th>ID</th>
               <th>用户</th>
               <th>邮箱</th>
+              <th>STOTP</th>
               <th>角色</th>
               <th>状态</th>
               <th>注册时间</th>
-              <th style={{ width: 210 }}>操作</th>
+              <th style={{ width: 300 }}>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -46,6 +53,13 @@ export default async function UsersPage() {
                 <td className="num">{user.id}</td>
                 <td style={{ fontWeight: 600 }}>{user.display_name || user.username}</td>
                 <td className="muted">{user.email}</td>
+                <td>
+                  {bindings.has(user.id) ? (
+                    <span className="pill pill-green" title={bindings.get(user.id)}>已绑定</span>
+                  ) : (
+                    <span className="pill">未绑定</span>
+                  )}
+                </td>
                 <td>
                   <span className={`pill ${user.role === "admin" ? "pill-blue" : ""}`}>
                     {user.role === "admin" ? "管理员" : "普通用户"}
@@ -63,6 +77,7 @@ export default async function UsersPage() {
                     role={user.role}
                     status={user.status}
                     isSelf={user.id === me.id}
+                    stotpBound={bindings.has(user.id)}
                   />
                 </td>
               </tr>

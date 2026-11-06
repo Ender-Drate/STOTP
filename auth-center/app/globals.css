@@ -234,6 +234,13 @@ select.input {
 }
 .notice-error { background: var(--danger-soft); color: var(--danger); }
 .notice-ok { background: var(--success-soft); color: var(--success); }
+.kv { border-top: 1px solid var(--line); margin-top: 4px; }
+.kv-row {
+  display: flex; justify-content: space-between; gap: 16px;
+  padding: 11px 0; border-bottom: 1px solid var(--line);
+  font-size: 13px; color: var(--text-2);
+}
+.kv-row > :last-child { text-align: right; }
 
 .empty { padding: 48px 20px; text-align: center; color: var(--muted); }
 .empty-title { font-weight: 600; color: var(--text); margin-bottom: 4px; }
@@ -262,6 +269,10 @@ select.input {
 .auth-error {
   background: var(--danger-soft); color: var(--danger);
   padding: 10px 12px; border-radius: 10px; font-size: 12.5px; margin-bottom: 14px;
+}
+.otp-input {
+  text-align: center; letter-spacing: 0.35em; font-size: 22px; font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 /* ---------- 同意页 ---------- */
