@@ -338,6 +338,84 @@ def _assertion_response(app, claims: dict, client: dict | None, client_id: str,
     return Response.json(payload)
 
 
+# ---- 登录站代算验证 ------------------------------------------------------
+
+
+def login_verify(app, req: Request) -> Response:
+    """登录站只提交 client_id + code；服务端自行代算 epoch/uuid。
+
+    仅对 client_credentials 令牌开放，返回与 /v1/verify 相同的 assertion 结构。
+    开关默认关闭，关闭时不影响现有 /v1/verify。
+    """
+    if not app.cfg.login_verify:
+        raise HttpError(404, "not_found", "登录站验证接口未启用")
+
+    started = time.monotonic()
+    claims = bearer_claims(app, req, "stotp.verify")
+    if not str(claims.get("sub", "")).startswith("client:"):
+        raise HttpError(403, "insufficient_scope", "需要登录站客户端令牌")
+    oauth_client_id = str(claims.get("client_id") or "")
+    oauth_row = app.store.get_oauth_client(oauth_client_id)
+    if oauth_row is None or not oauth_row["secret_hash"]:
+        raise HttpError(403, "insufficient_scope", "登录站必须是机密客户端")
+
+    try:
+        body = req.json(required=False)
+    except HttpError:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    raw_client_id = str(body.get("client_id") or "")
+    # 非法/超长输入统一替换为固定 UUID，保证 assertion 长度不泄露输入差异
+    if _valid_uuid4(raw_client_id):
+        client_id = raw_client_id
+        client = app.store.get_stotp_client(client_id)
+    else:
+        client_id = "00000000-0000-4000-8000-000000000000"
+        client = None
+    code = str(body.get("code") or "")[:16]
+
+    current = _now_epoch(app)
+    epoch = max(current, client["min_epoch"]) if client else current
+    seed = app.store.get_seed(client) if client else app.dummy_seed
+    uuid_value = crypto.derive_uuid(
+        crypto.derive_key(seed, client_id, crypto.UUID_LABEL), client_id, epoch)
+
+    ip_limited = not app.limiter.allow("login-verify-ip:" + req.client_ip, 60, 1.0)
+    cid_limited = not app.limiter.allow("login-verify-cid:" + client_id, 10, 10 / 60)
+    # 与 /v1/verify 的失败锁定分开，登录站的错误不会锁死客户端自检
+    fail_key = "login:" + client_id
+    locked = app.failures.is_locked(fail_key)
+
+    allow, reason, _ = _evaluate(app, client, claims, client_id, epoch,
+                                 uuid_value, code)
+    if ip_limited or cid_limited or locked:
+        allow, reason = False, "rate_limited" if (ip_limited or cid_limited) else "locked"
+
+    now = time.time()
+    if allow:
+        app.replay.add(f"{client_id}:{epoch}:{code}", now)
+        app.failures.reset(fail_key)
+        app.store.touch_verify(client_id)
+    elif reason not in {"rate_limited", "locked"}:
+        app.failures.fail(fail_key)
+    app.store.audit(
+        "login_verify_allow" if allow else "login_verify_deny",
+        client_id,
+        app.ip_hash(req.client_ip),
+        f"{reason};station={oauth_client_id}",
+    )
+
+    response = _assertion_response(app, claims, client, client_id, epoch,
+                                   allow, reason)
+    elapsed = time.monotonic() - started
+    budget = app.cfg.verify_budget_ms / 1000.0
+    if budget > elapsed:
+        time.sleep(budget - elapsed)
+    return response
+
+
 # ---- 健康检查 ------------------------------------------------------------
 
 
@@ -424,4 +502,5 @@ def register(router) -> None:
     router.add("POST", r"/v1/clients/(?P<client_id>[0-9a-fA-F-]{36})/descriptor",
                update_descriptor)
     router.add("POST", r"/v1/verify", verify)
+    router.add("POST", r"/v1/login/verify", login_verify)
     router.add("GET", r"/healthz", healthz)

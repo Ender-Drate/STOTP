@@ -20,6 +20,7 @@ class CliEnvTest(unittest.TestCase):
                 "STOTP_REQUIRE_TLS": "1",
                 "STOTP_TRUST_PROXY": "1",
                 "STOTP_DEV_LOGIN": "1",
+                "STOTP_LOGIN_VERIFY": "1",
             }
             with patch.dict(os.environ, env, clear=False):
                 cfg = build_config(self.parse([]))
@@ -30,6 +31,7 @@ class CliEnvTest(unittest.TestCase):
             self.assertTrue(cfg.require_tls)
             self.assertTrue(cfg.trust_proxy)
             self.assertTrue(cfg.dev_login)
+            self.assertTrue(cfg.login_verify)
 
     def test_cli_overrides_env(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -55,11 +57,13 @@ class CliEnvTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.dict(os.environ, {"STOTP_DB": os.path.join(tmp, "x.db")}, clear=False):
                 for key in ("STOTP_HOST", "STOTP_PORT", "STOTP_PUBLIC_URL",
-                            "STOTP_REQUIRE_TLS", "STOTP_TRUST_PROXY", "STOTP_DEV_LOGIN"):
+                            "STOTP_REQUIRE_TLS", "STOTP_TRUST_PROXY", "STOTP_DEV_LOGIN",
+                            "STOTP_LOGIN_VERIFY"):
                     os.environ.pop(key, None)
                 cfg = build_config(self.parse([]))
             self.assertEqual(cfg.port, 8787)
             self.assertFalse(cfg.dev_login)
+            self.assertFalse(cfg.login_verify)
             self.assertFalse(cfg.require_tls)
 
 

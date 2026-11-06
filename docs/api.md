@@ -296,6 +296,34 @@ grant_type=client_credentials&client_id=<id>&client_secret=<secret>&scope=stotp.
 
 **无论客户端是否存在、是否被吊销、验证码是否正确，响应都是 200 且结构/长度一致。**
 
+### 4.2 登录站代算验证（默认关闭）
+
+登录站通常拿不到客户端派生出的 `uuid`（它由 seed 派生，只在客户端和服务端）。这个接口让登录站只提交
+`client_id + code`，由服务端按当前 epoch 代算 uuid 后完成校验。
+
+启用：
+
+```bash
+STOTP_LOGIN_VERIFY=1 python -m stotp
+# 或 python -m stotp --login-verify
+```
+
+请求：
+
+```http
+POST /v1/login/verify
+Authorization: Bearer <client_credentials 令牌，scope=stotp.verify>
+Content-Type: application/json
+
+{"client_id": "0f8fad5b-...", "code": "817204"}
+```
+
+- 只接受**机密客户端**（有 `client_secret`）的 `client_credentials` 令牌；用户令牌返回 `403`。
+- 服务端查注册记录、按当前 `epoch` 派生 `uuid`，复用注册态 / TOTP / 重放校验。
+- 响应与 §4.1 的 assertion 完全相同（恒 200、定长），登录站用
+  `assert_key = HKDF(client_secret, "stotp/assertion/v1", 32)` 验签。
+- 接口关闭时返回 `404`；不影响现有 `POST /v1/verify`。
+
 ## 5. 健康检查
 
 `GET /healthz` → `{"ok":true,"version":"1.0.0","uptime_s":1234}`（不鉴权，不泄露配置）。
