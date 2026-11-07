@@ -11,7 +11,7 @@ interface RoleOption {
 
 export function UserActions({
   userId, roleId, status, isSelf,
-  roles, canAssignRoles, canDisable,
+  roles, canAssignRoles, canDisable, canDelete,
 }: {
   userId: number;
   roleId: number;
@@ -20,6 +20,7 @@ export function UserActions({
   roles: RoleOption[];
   canAssignRoles: boolean;
   canDisable: boolean;
+  canDelete: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -35,6 +36,23 @@ export function UserActions({
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         alert(data?.error?.message || "操作失败");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!confirm("删除该用户？其会话、令牌、Passkey、第三方绑定都会被删除。")) return;
+    if (!confirm("再次确认：删除后不可恢复，确定删除？")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        alert(data?.error?.message || "删除失败");
         return;
       }
       router.refresh();
@@ -63,6 +81,12 @@ export function UserActions({
         <option value="active">正常</option>
         <option value="disabled">禁用</option>
       </select>
+      {canDelete && !isSelf ? (
+        <button type="button" className="btn btn-sm btn-danger"
+          onClick={remove} disabled={busy}>
+          删除用户
+        </button>
+      ) : null}
     </div>
   );
 }
