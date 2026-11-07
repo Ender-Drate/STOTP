@@ -39,10 +39,25 @@ if (!table) {
   process.exit(1);
 }
 
+const roleTable = db
+  .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'roles'")
+  .get();
+if (!roleTable) {
+  console.error("数据库还没有 roles 表，请先启动一次 auth-center 完成迁移。");
+  process.exit(1);
+}
+const superRole = db
+  .prepare("SELECT id, permissions FROM roles WHERE key = 'superadmin'")
+  .get();
+if (!superRole) {
+  console.error("缺少 superadmin 角色，请先启动一次 auth-center。");
+  process.exit(1);
+}
+
 const salt = randomBytes(16);
 const derived = scryptSync(password, salt, 64);
 const passwordHash = `scrypt$${salt.toString("base64url")}$${derived.toString("base64url")}`;
-const permissions = JSON.stringify(["admin", "user"]);
+const permissions = superRole.permissions;
 const now = new Date().toISOString();
 
 const existing = db
@@ -62,17 +77,18 @@ if (!existing) {
 if (existing) {
   db.prepare(
     `UPDATE users
-     SET username = ?, email = ?, password_hash = ?, role = 'admin',
-         status = 'active', permissions = ?
+     SET username = ?, email = ?, password_hash = ?, role = 'superadmin',
+         role_id = ?, status = 'active', permissions = ?
      WHERE id = ?`
-  ).run(username, email, passwordHash, permissions, existing.id);
-  console.log(`已重置管理员：${username}（id=${existing.id}）`);
+  ).run(username, email, passwordHash, superRole.id, permissions, existing.id);
+  console.log(`已重置最高管理员：${username}（id=${existing.id}）`);
 } else {
   const result = db.prepare(
-    `INSERT INTO users(username, email, password_hash, display_name, role, status, permissions, created_at)
-     VALUES (?, ?, ?, ?, 'admin', 'active', ?, ?)`
-  ).run(username, email, passwordHash, username, permissions, now);
-  console.log(`已创建管理员：${username}（id=${result.lastInsertRowid}）`);
+    `INSERT INTO users(username, email, password_hash, display_name, role, role_id,
+       status, permissions, created_at)
+     VALUES (?, ?, ?, ?, 'superadmin', ?, 'active', ?, ?)`
+  ).run(username, email, passwordHash, username, superRole.id, permissions, now);
+  console.log(`已创建最高管理员：${username}（id=${result.lastInsertRowid}）`);
 }
 
 console.log(`数据库：${file}`);

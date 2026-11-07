@@ -8,7 +8,8 @@ interface NavItem {
   href: string;
   label: string;
   icon: string;
-  admin?: boolean;
+  permission?: string;
+  superOnly?: boolean;
 }
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
@@ -16,9 +17,16 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     label: "主菜单",
     items: [
       { href: "/dashboard", label: "概览", icon: "overview" },
-      { href: "/dashboard/apps", label: "OAuth2 应用", icon: "apps", admin: true },
+      {
+        href: "/dashboard/apps", label: "OAuth2 应用", icon: "apps",
+        permission: "oauth.apps.manage",
+      },
       { href: "/dashboard/authorizations", label: "我的授权", icon: "authz" },
-      { href: "/dashboard/users", label: "用户管理", icon: "users", admin: true },
+      {
+        href: "/dashboard/users", label: "用户管理", icon: "users",
+        permission: "users.view",
+      },
+      { href: "/dashboard/roles", label: "权限", icon: "shield", superOnly: true },
       { href: "/dashboard/settings", label: "设置", icon: "settings" },
     ],
   },
@@ -28,7 +36,12 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
   },
 ];
 
-export function SidebarNav({ isAdmin }: { isAdmin: boolean }) {
+export function SidebarNav({
+  permissions, isSuper,
+}: {
+  permissions: string[];
+  isSuper: boolean;
+}) {
   const pathname = usePathname();
   return (
     <nav className="nav">
@@ -36,7 +49,11 @@ export function SidebarNav({ isAdmin }: { isAdmin: boolean }) {
         <div key={group.label}>
           <div className="nav-label">{group.label}</div>
           {group.items
-            .filter((item) => !item.admin || isAdmin)
+            .filter((item) => {
+              if (item.superOnly) return isSuper;
+              if (!item.permission) return true;
+              return permissions.includes(item.permission);
+            })
             .map((item) => {
               const active = pathname === item.href ||
                 (item.href !== "/dashboard" && pathname.startsWith(item.href));

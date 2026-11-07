@@ -14,7 +14,8 @@
     "start:lan": "next start -H 0.0.0.0 -p 3100",
     "seed": "node scripts/seed.mjs",
     "e2e": "node scripts/e2e.mjs",
-    "e2e:stotp": "node scripts/e2e-stotp.mjs"
+    "e2e:stotp": "node scripts/e2e-stotp.mjs",
+    "e2e:rbac": "node scripts/e2e-rbac.mjs"
   },
   "dependencies": {
     "next": "16.4.5",

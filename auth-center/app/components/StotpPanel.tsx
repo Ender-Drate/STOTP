@@ -11,9 +11,10 @@ interface Binding {
   lastVerifiedAt: string | null;
 }
 
-export function StotpPanel({ binding, enabled }: {
+export function StotpPanel({ binding, enabled, canBind }: {
   binding: Binding | null;
   enabled: boolean;
+  canBind: boolean;
 }) {
   const router = useRouter();
   const [clientId, setClientId] = useState(binding?.clientId || "");
@@ -81,7 +82,11 @@ export function StotpPanel({ binding, enabled }: {
       {msg ? (
         <div className={`notice ${msg.ok ? "notice-ok" : "notice-error"}`}>{msg.text}</div>
       ) : null}
-      {!enabled ? (
+      {!canBind ? (
+        <div className="notice notice-error">
+          当前权限等级没有「绑定 STOTP」权限，请联系最高管理员调整权限。
+        </div>
+      ) : !enabled ? (
         <div className="notice notice-error">
           STOTP 未配置或已关闭，暂时不能绑定。请联系管理员设置 STOTP_BASE_URL 和登录站凭证。
         </div>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getDb, type OAuthClient } from "@/lib/db";
 import { currentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 import { serializeClient } from "@/lib/clients";
 import { AppManager } from "@/app/components/AppManager";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function AppsPage() {
   const user = await currentUser();
   if (!user) redirect("/login?next=/dashboard/apps");
-  if (user.role !== "admin") {
+  if (!hasPermission(user, "oauth.apps.manage")) {
     return (
       <div className="card card-pad">
         <div className="card-title">需要管理员权限</div>

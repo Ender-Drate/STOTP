@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { audit, findUserById, getDb, type User } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin";
+import { requireUser } from "@/lib/admin";
+import { hasPermission, isSuperAdmin } from "@/lib/permissions";
 import { assertSameOrigin, clientIp, errorResponse, HttpError, readJson } from "@/lib/http";
+import { getRole } from "@/lib/roles";
 import { publicUser } from "@/lib/users";
 
 export const runtime = "nodejs";
 
 interface Body {
-  role?: string;
+  roleId?: number;
   status?: string;
+}
+
+function activeSuperAdmins(): number {
+  return (getDb().prepare(
+    `SELECT COUNT(*) AS c FROM users
+     JOIN roles ON roles.id = users.role_id
+     WHERE roles.key = 'superadmin' AND users.status = 'active'`
+  ).get() as { c: number }).c;
 }
 
 export async function PATCH(
@@ -17,34 +27,69 @@ export async function PATCH(
 ) {
   try {
     assertSameOrigin(req);
-    const admin = await requireAdmin();
+    const actor = await requireUser();
     const { id } = await context.params;
-    const user = findUserById(Number(id));
-    if (!user) throw new HttpError(404, "not_found", "用户不存在");
-    const body = await readJson<Body>(req);
-    const role = body.role ?? user.role;
-    const status = body.status ?? user.status;
-    if (!["admin", "user"].includes(role)) throw new HttpError(400, "invalid_request", "角色不合法");
-    if (!["active", "disabled"].includes(status)) throw new HttpError(400, "invalid_request", "状态不合法");
+    const target = findUserById(Number(id));
+    if (!target) throw new HttpError(404, "not_found", "用户不存在");
 
-    if (user.role === "admin" && (role !== "admin" || status !== "active")) {
-      const row = getDb().prepare(
-        "SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND status = 'active'"
-      ).get() as { c: number };
-      if (row.c <= 1) throw new HttpError(400, "invalid_request", "至少保留一个启用的管理员");
-      if (user.id === admin.id) throw new HttpError(400, "invalid_request", "不能修改自己的管理员权限");
+    const body = await readJson<Body>(req);
+    const changingRole = body.roleId !== undefined;
+    const changingStatus = body.status !== undefined;
+    if (!changingRole && !changingStatus) {
+      throw new HttpError(400, "invalid_request", "没有需要修改的字段");
     }
-    getDb().prepare("UPDATE users SET role = ?, status = ? WHERE id = ?")
-      .run(role, status, user.id);
-    if (status === "disabled") {
-      getDb().prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
-      getDb().prepare("UPDATE tokens SET revoked = 1 WHERE user_id = ?").run(user.id);
+    if (target.id === actor.id && (changingRole || changingStatus)) {
+      throw new HttpError(400, "invalid_request", "不能修改自己的角色或状态");
+    }
+
+    let role;
+    if (changingRole) {
+      if (!isSuperAdmin(actor)) {
+        throw new HttpError(403, "forbidden", "只有最高管理员可以设置权限等级");
+      }
+      role = getRole(Number(body.roleId));
+      if (!role) throw new HttpError(400, "invalid_request", "权限等级不存在");
+      if (target.role_id === role.id) role = undefined;
+    }
+
+    let status = target.status;
+    if (changingStatus) {
+      if (!hasPermission(actor, "users.disable")) {
+        throw new HttpError(403, "forbidden", "没有禁用/启用用户的权限");
+      }
+      if (!["active", "disabled"].includes(String(body.status))) {
+        throw new HttpError(400, "invalid_request", "状态不合法");
+      }
+      status = String(body.status) as User["status"];
+    }
+
+    const targetIsSuper = target.role_id
+      ? getRole(target.role_id)?.key === "superadmin"
+      : target.role === "admin";
+    const losingSuper = targetIsSuper
+      && ((role && role.key !== "superadmin") || status === "disabled");
+    if (losingSuper && activeSuperAdmins() <= 1) {
+      throw new HttpError(400, "invalid_request", "至少保留一个启用的最高管理员");
+    }
+
+    if (role) {
+      getDb().prepare(
+        "UPDATE users SET role_id = ?, role = ?, permissions = ? WHERE id = ?"
+      ).run(role.id, role.key, role.permissions, target.id);
+    }
+    if (status !== target.status) {
+      getDb().prepare("UPDATE users SET status = ? WHERE id = ?").run(status, target.id);
+      if (status === "disabled") {
+        getDb().prepare("DELETE FROM sessions WHERE user_id = ?").run(target.id);
+        getDb().prepare("UPDATE tokens SET revoked = 1 WHERE user_id = ?").run(target.id);
+      }
     }
     audit("user_update", {
-      userId: admin.id, ip: clientIp(req), detail: `target=${user.id} role=${role} status=${status}`,
+      userId: actor.id,
+      ip: clientIp(req),
+      detail: `target=${target.id} role=${role?.key ?? target.role} status=${status}`,
     });
-    const updated = findUserById(user.id) as User;
-    return NextResponse.json({ user: publicUser(updated) });
+    return NextResponse.json({ user: publicUser(findUserById(target.id)!) });
   } catch (error) {
     return errorResponse(error);
   }

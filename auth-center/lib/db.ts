@@ -3,8 +3,20 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { hashPassword } from "./crypto";
+import { ALL_PERMISSION_KEYS, DEFAULT_ROLE_PERMISSIONS } from "./permission-defs";
 
-export type Role = "admin" | "user";
+export type Role = string;
+
+export interface RoleRecord {
+  id: number;
+  key: string;
+  name: string;
+  description: string | null;
+  permissions: string;
+  is_system: number;
+  created_at: string;
+}
+
 export type UserStatus = "active" | "disabled";
 
 export interface User {
@@ -15,6 +27,7 @@ export interface User {
   display_name: string | null;
   avatar_url: string | null;
   role: Role;
+  role_id: number | null;
   status: UserStatus;
   permissions: string;
   totp_secret: string | null;
@@ -58,6 +71,16 @@ PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS roles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  permissions TEXT NOT NULL DEFAULT '[]',
+  is_system INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -66,6 +89,7 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT,
   avatar_url TEXT,
   role TEXT NOT NULL DEFAULT 'user',
+  role_id INTEGER,
   status TEXT NOT NULL DEFAULT 'active',
   permissions TEXT NOT NULL DEFAULT '[]',
   totp_secret TEXT,
@@ -165,6 +189,53 @@ CREATE INDEX IF NOT EXISTS idx_challenges_expiry ON login_challenges(expires_at)
 
 const globalForDb = globalThis as unknown as { __authCenterDb?: DatabaseSync };
 
+function ensureRoles(db: DatabaseSync) {
+  const now = nowIso();
+  const systemRoles = [
+    {
+      key: "superadmin", name: "最高管理员",
+      description: "拥有全部权限，可以管理权限等级",
+      permissions: JSON.stringify(ALL_PERMISSION_KEYS),
+    },
+    {
+      key: "admin", name: "管理员",
+      description: "日常管理，不能修改权限等级",
+      permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS.admin),
+    },
+    {
+      key: "user", name: "普通用户",
+      description: "只能使用自己的账号功能",
+      permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS.user),
+    },
+  ];
+  for (const role of systemRoles) {
+    db.prepare(
+      `INSERT OR IGNORE INTO roles(key, name, description, permissions, is_system, created_at)
+       VALUES (?, ?, ?, ?, 1, ?)`
+    ).run(role.key, role.name, role.description, role.permissions, now);
+  }
+  const superId = (db.prepare("SELECT id FROM roles WHERE key = 'superadmin'").get() as {
+    id: number;
+  }).id;
+  const userId = (db.prepare("SELECT id FROM roles WHERE key = 'user'").get() as {
+    id: number;
+  }).id;
+  const legacy = db.prepare(
+    "SELECT id, role FROM users WHERE role_id IS NULL"
+  ).all() as Array<{ id: number; role: string }>;
+  for (const row of legacy) {
+    const isAdmin = row.role === "admin" || row.role === "superadmin";
+    const roleId = isAdmin ? superId : userId;
+    const key = isAdmin ? "superadmin" : "user";
+    const permissions = JSON.stringify(
+      isAdmin ? ALL_PERMISSION_KEYS : DEFAULT_ROLE_PERMISSIONS.user
+    );
+    db.prepare(
+      "UPDATE users SET role_id = ?, role = ?, permissions = ? WHERE id = ?"
+    ).run(roleId, key, permissions, row.id);
+  }
+}
+
 function ensureAdmin(db: DatabaseSync) {
   const row = db.prepare("SELECT COUNT(*) AS c FROM users").get() as { c: number };
   if (row.c > 0) return;
@@ -175,10 +246,15 @@ function ensureAdmin(db: DatabaseSync) {
       ? randomBytes(12).toString("base64url")
       : "admin1234");
   const now = nowIso();
+  const superRole = db.prepare("SELECT id FROM roles WHERE key = 'superadmin'").get() as {
+    id: number;
+  };
   db.prepare(
-    `INSERT INTO users(username, email, password_hash, display_name, role, status, permissions, created_at)
-     VALUES (?, ?, ?, ?, 'admin', 'active', ?, ?)`
-  ).run(username, email, hashPassword(password), username, JSON.stringify(["admin", "user"]), now);
+    `INSERT INTO users(username, email, password_hash, display_name, role, role_id,
+       status, permissions, created_at)
+     VALUES (?, ?, ?, ?, 'superadmin', ?, 'active', ?, ?)`
+  ).run(username, email, hashPassword(password), username, superRole.id,
+    JSON.stringify(ALL_PERMISSION_KEYS), now);
   if (!process.env.AUTH_ADMIN_PASSWORD) {
     console.warn(`[auth-center] 已创建管理员 ${username} / ${password}（请尽快修改密码）`);
   }
@@ -191,10 +267,15 @@ export function getDb(): DatabaseSync {
   const file = process.env.AUTH_DB_PATH || path.join(dataDir, "auth.db");
   const db = new DatabaseSync(file);
   db.exec(SCHEMA);
-  const columns = db.prepare("PRAGMA table_info(auth_codes)").all() as Array<{ name: string }>;
-  if (!columns.some((column) => column.name === "nonce")) {
+  const codeColumns = db.prepare("PRAGMA table_info(auth_codes)").all() as Array<{ name: string }>;
+  if (!codeColumns.some((column) => column.name === "nonce")) {
     db.exec("ALTER TABLE auth_codes ADD COLUMN nonce TEXT");
   }
+  const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+  if (!userColumns.some((column) => column.name === "role_id")) {
+    db.exec("ALTER TABLE users ADD COLUMN role_id INTEGER");
+  }
+  ensureRoles(db);
   ensureAdmin(db);
   globalForDb.__authCenterDb = db;
   return db;

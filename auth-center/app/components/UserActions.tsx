@@ -3,35 +3,30 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+interface RoleOption {
+  id: number;
+  name: string;
+  key: string;
+}
+
 export function UserActions({
-  userId, role, status, isSelf, stotpBound,
+  userId, roleId, status, isSelf,
+  roles, canAssignRoles, canDisable, canManageStotp, stotpBound,
 }: {
   userId: number;
-  role: "admin" | "user";
+  roleId: number;
   status: "active" | "disabled";
   isSelf: boolean;
+  roles: RoleOption[];
+  canAssignRoles: boolean;
+  canDisable: boolean;
+  canManageStotp: boolean;
   stotpBound: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  async function unbindStotp() {
-    if (!confirm("解绑该用户的 STOTP 设备？解绑后登录不再要求验证码。")) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/users/${userId}/stotp`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        alert(data?.error?.message || "解绑失败");
-        return;
-      }
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function update(patch: { role?: string; status?: string }) {
+  async function update(patch: { roleId?: number; status?: string }) {
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
@@ -50,26 +45,44 @@ export function UserActions({
     }
   }
 
+  async function unbindStotp() {
+    if (!confirm("解绑该用户的 STOTP 设备？解绑后登录不再要求验证码。")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/stotp`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        alert(data?.error?.message || "解绑失败");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="row">
+    <div className="row" style={{ flexWrap: "wrap" }}>
       <select
-        className="input" style={{ height: 30, width: 96, fontSize: 12 }}
-        value={role} disabled={busy || isSelf}
-        onChange={(e) => update({ role: e.target.value })}
+        className="input" style={{ height: 30, width: 150, fontSize: 12 }}
+        value={roleId} disabled={busy || isSelf || !canAssignRoles}
+        onChange={(e) => update({ roleId: Number(e.target.value) })}
+        title={canAssignRoles ? "设置权限等级" : "只有最高管理员可以设置权限等级"}
       >
-        <option value="user">普通用户</option>
-        <option value="admin">管理员</option>
+        {roles.map((role) => (
+          <option key={role.id} value={role.id}>{role.name}</option>
+        ))}
       </select>
       <select
         className="input" style={{ height: 30, width: 84, fontSize: 12 }}
-        value={status} disabled={busy || isSelf}
+        value={status} disabled={busy || isSelf || !canDisable}
         onChange={(e) => update({ status: e.target.value })}
       >
         <option value="active">正常</option>
         <option value="disabled">禁用</option>
       </select>
-      {stotpBound ? (
-        <button type="button" className="btn" style={{ height: 30, fontSize: 12 }}
+      {stotpBound && canManageStotp ? (
+        <button type="button" className="btn btn-sm btn-danger"
           onClick={unbindStotp} disabled={busy}>
           解绑 STOTP
         </button>

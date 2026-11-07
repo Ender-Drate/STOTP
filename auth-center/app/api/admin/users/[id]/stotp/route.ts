@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin";
+import { requirePermission } from "@/lib/admin";
 import { audit, findUserById } from "@/lib/db";
 import { assertSameOrigin, clientIp, errorResponse, HttpError } from "@/lib/http";
 import { removeBinding } from "@/lib/stotp-store";
@@ -12,7 +12,7 @@ export async function DELETE(
 ) {
   try {
     assertSameOrigin(req);
-    const admin = await requireAdmin();
+    const admin = await requirePermission("stotp.manage");
     const { id } = await context.params;
     const user = findUserById(Number(id));
     if (!user) throw new HttpError(404, "not_found", "用户不存在");
