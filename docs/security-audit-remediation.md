@@ -7,7 +7,7 @@
 
 | 编号 | 状态 | 整改 |
 | --- | --- | --- |
-| H-1 | 已修复 | `clientIp()` 只读取 nginx 覆盖的 `X-Real-IP`；完全移除 `CF-Connecting-IP` / `X-Forwarded-For` / `Forwarded` 信任 |
+| H-1 | 已修复 | `clientIp()` 只读取 nginx 覆盖的 `X-Real-IP`；兼容多层代理重复追加的逗号列表；完全移除 `CF-Connecting-IP` / `X-Forwarded-For` / `Forwarded` 信任 |
 | M-1 | 已修复 | `safeNextPath()` 拒绝反斜杠、编码反斜杠/斜杠、控制字符，并校验同源 |
 | M-2 | 已修复 | `/api/oauth/head` 改为 HMAC 签名 URL；只输出 SVG，不 302 到用户 URL；OIDC `picture` 也改为签名地址 |
 | M-3 | 已修复 | Next + nginx 增加 CSP、XFO、nosniff、Referrer-Policy、Permissions-Policy、HSTS；关闭 X-Powered-By |
@@ -85,6 +85,13 @@ AUTH_REQUIRE_ENCRYPTED_PASSWORD=0
 ```
 
 签名由 `data/avatar-secret`（或 `AUTH_AVATAR_SECRET`）生成，不跳转外部 URL。
+
+### 5. 72h IP 与观察规则
+
+- 访问 IP 列表只统计 `visitWindowHours`（默认 72h）内的观测/审计；
+- `watch` 观察规则默认 72h 到期，`listIpRules()` 自动清理过期规则；
+- `block` 封禁规则默认长期，除非 API 显式传 `expiresAt`；
+- `X-Real-IP: 1.2.3.4, 1.2.3.4` 会取第一个合法 IP，不会退回 127.0.0.1。
 
 ## 仍未解决/需要产品决策
 

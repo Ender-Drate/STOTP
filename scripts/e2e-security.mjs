@@ -54,6 +54,19 @@ const sessions = await json("/api/settings/sessions", {
 const current = sessions.body?.sessions?.find((item) => item.current);
 ok(current && current.ip !== "8.8.4.4", "spoofed CF/XFF ignored", current?.ip);
 
+// 兼容多层代理重复追加的 X-Real-IP，而不是把整个列表当成非法 IP 落到 127.0.0.1。
+const commaHeader = await json("/api/auth/login", {
+  method: "POST",
+  headers: { "X-Real-IP": "112.9.40.76, 112.9.40.76" },
+  body: JSON.stringify({ username, password }),
+});
+const commaSessions = await json("/api/settings/sessions", {
+  headers: { Cookie: commaHeader.cookie },
+});
+const commaCurrent = commaSessions.body?.sessions?.find((item) => item.current);
+ok(commaSessions.res.status === 200 && commaCurrent?.ip === "112.9.40.76",
+  "comma-separated X-Real-IP is parsed", commaCurrent?.ip);
+
 // M-1：反斜杠 next 不能跳出站外。
 const openRedirect = await fetch(BASE + "/api/auth/login", {
   method: "POST",
@@ -127,6 +140,19 @@ const csv = await fetch(BASE + "/api/admin/audit/export", {
 const csvText = await csv.text();
 ok(csv.status === 200 && !csvText.includes('"=HYPERLINK')
   && csvText.includes("'=HYPERLINK"), "CSV formula injection escaped");
+
+const watch = await json("/api/admin/ip-rules", {
+  method: "POST",
+  headers: { Cookie: adminLogin.cookie },
+  body: JSON.stringify({ ip: "203.0.113.77", action: "watch", reason: "e2e expiry" }),
+});
+ok(watch.res.status === 201 && Boolean(watch.body?.rule?.expires_at),
+  "watch rule has automatic expiry", watch.body?.rule?.expires_at);
+if (watch.body?.rule?.id) {
+  await json(`/api/admin/ip-rules?id=${watch.body.rule.id}`, {
+    method: "DELETE", headers: { Cookie: adminLogin.cookie },
+  });
+}
 
 console.log(failures === 0 ? "\nALL SECURITY CHECKS PASSED" : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

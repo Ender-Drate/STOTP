@@ -68,7 +68,7 @@ export function IpRulesPanel({ rules }: { rules: IpRule[] }) {
       <div className="table-wrap" style={{ marginTop: 12 }}>
         <table className="table">
           <thead>
-            <tr><th>IP</th><th>动作</th><th>原因</th><th>创建时间</th><th>操作</th></tr>
+            <tr><th>IP</th><th>动作</th><th>原因</th><th>到期</th><th>创建时间</th><th>操作</th></tr>
           </thead>
           <tbody>
             {rules.map((rule) => (
@@ -78,13 +78,14 @@ export function IpRulesPanel({ rules }: { rules: IpRule[] }) {
                   {rule.action === "block" ? "封禁" : "观察"}
                 </span></td>
                 <td className="small muted">{rule.reason || "-"}</td>
+                <td className="mono small">{rule.expires_at ? new Date(rule.expires_at).toLocaleString("zh-CN") : "长期"}</td>
                 <td className="mono small">{new Date(rule.created_at).toLocaleString("zh-CN")}</td>
                 <td><button className="btn btn-sm btn-danger" onClick={() => remove(rule)}
                   disabled={busy}>删除</button></td>
               </tr>
             ))}
             {rules.length === 0 ? (
-              <tr><td colSpan={5} className="muted">暂无 IP 规则</td></tr>
+              <tr><td colSpan={6} className="muted">暂无 IP 规则</td></tr>
             ) : null}
           </tbody>
         </table>
