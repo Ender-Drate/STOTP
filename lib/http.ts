@@ -68,7 +68,6 @@ export function safeNextPath(value: unknown, fallback = "/dashboard"): string {
     !raw.startsWith("/") ||
     raw.startsWith("//") ||
     raw.includes("\\") ||
-    /%5c|%2f/i.test(raw) ||
     /[\u0000-\u001f\u007f]/.test(raw)
   ) {
     return fallback;
@@ -77,6 +76,16 @@ export function safeNextPath(value: unknown, fallback = "/dashboard"): string {
     const base = new URL(PUBLIC_URL);
     const target = new URL(raw, base);
     if (target.origin !== base.origin) return fallback;
+    // 只对 pathname 做编码解码检查；query 中的 %2F（例如 OAuth redirect_uri）必须保留。
+    let pathname: string;
+    try {
+      pathname = decodeURIComponent(target.pathname);
+    } catch {
+      return fallback;
+    }
+    if (!pathname.startsWith("/") || pathname.startsWith("//") || pathname.includes("\\")) {
+      return fallback;
+    }
     return `${target.pathname}${target.search}${target.hash}`;
   } catch {
     return fallback;

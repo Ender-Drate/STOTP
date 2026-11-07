@@ -91,6 +91,19 @@ const encodedLocation = encodedRedirect.headers.get("location") || "";
 ok(encodedRedirect.status === 303 && !encodedLocation.includes("evil.example"),
   "encoded backslash next does not open redirect", encodedLocation);
 
+// OAuth 登录的 next 含有 redirect_uri（里面必然有 %2F），不能被误判为开放重定向。
+const oauthNext = "/api/oauth/authorize?client_id=test&redirect_uri=https%3A%2F%2Fauth.builddreams.cn%2Fcallback&response_type=code&state=x";
+const oauthRedirect = await fetch(BASE + "/api/auth/login", {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({ username, password, next: oauthNext }),
+  redirect: "manual",
+});
+const oauthLocation = oauthRedirect.headers.get("location") || "";
+ok(oauthRedirect.status === 303 && oauthLocation.includes("/api/oauth/authorize?")
+  && oauthLocation.includes("redirect_uri=https%3A%2F%2Fauth.builddreams.cn%2Fcallback"),
+  "oauth next with encoded redirect_uri is preserved", oauthLocation);
+
 // L-1：跨站 logout 被拒绝。
 const csrfLogout = await fetch(BASE + "/api/auth/logout", {
   method: "POST",
