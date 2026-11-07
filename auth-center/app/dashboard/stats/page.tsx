@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { formatBytes, formatRate, getSystemStats } from "@/lib/system-stats";
+import { formatDateTime } from "@/lib/datetime";
 import { Popover } from "@/app/components/Feedback";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ export default async function StatsPage() {
           <h1 className="page-title">统计信息</h1>
           <p className="page-desc">主机资源与认证运行指标</p>
         </div>
-        <span className="pill">{stats.now.replace("T", " ").replace("Z", " UTC")}</span>
+        <span className="pill">{formatDateTime(stats.now)}</span>
       </div>
 
       <div className="grid grid-4">

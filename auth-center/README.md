@@ -80,6 +80,7 @@ location / {
 | `AUTH_ADMIN_EMAIL` | `admin@localhost` | 管理员邮箱 |
 | `AUTH_ADMIN_PASSWORD` | 见上 | 管理员初始密码 |
 | `AUTH_TRUST_PROXY` | `1` | 信任反向代理传来的 `X-Real-IP` / `X-Forwarded-For` / `CF-Connecting-IP`；应用直接暴露公网时设为 `0` |
+| `AUTH_DISPLAY_TZ` | `Asia/Hong_Kong` | 服务端页面显示时间使用的 IANA 时区；数据库仍保存 UTC |
 | `STOTP_BASE_URL` | 空 | STOTP 服务端内部地址，如 `http://127.0.0.1:8787`；为空则无法绑定，已绑定用户会 fail closed |
 | `STOTP_LOGIN_CLIENT_ID` | 空 | 在 STOTP `/oauth/register` 注册的**登录站** OAuth client_id（`srv_...`） |
 | `STOTP_LOGIN_CLIENT_SECRET` | 空 | 上述登录站客户端的 secret，用于换 token 和验 assertion |

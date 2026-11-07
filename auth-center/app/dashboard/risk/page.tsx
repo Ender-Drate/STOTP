@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { currentUser } from "@/lib/session";
 import { hasPermission, isSuperAdmin } from "@/lib/permissions";
 import { getDb } from "@/lib/db";
 import { getRiskSettings, ipRiskScores, RISK_LABELS, riskLevel, type RiskSettings } from "@/lib/risk";
+import { firstPublicIp } from "@/lib/ip";
+import { formatDateTime } from "@/lib/datetime";
 import { RiskSettingsForm } from "@/app/components/RiskSettingsForm";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +45,15 @@ export default async function RiskPage() {
 
   const settings = getRiskSettings();
   const scores = ipRiskScores();
+  const requestHeaders = await headers();
+  const xRealIp = requestHeaders.get("x-real-ip") || "-";
+  const xForwardedFor = requestHeaders.get("x-forwarded-for") || "-";
+  const cfConnectingIp = requestHeaders.get("cf-connecting-ip") || "-";
+  const detectedIp = firstPublicIp([
+    cfConnectingIp === "-" ? null : cfConnectingIp,
+    xRealIp === "-" ? null : xRealIp,
+    ...(xForwardedFor === "-" ? [] : xForwardedFor.split(",")),
+  ]);
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const failed = getDb().prepare(
     "SELECT COUNT(*) AS c FROM audit WHERE event = 'login_failed' AND ts >= ?"
@@ -108,6 +120,23 @@ export default async function RiskPage() {
         )}
       </div>
 
+      <div className="card card-pad" style={{ marginTop: 16 }}>
+        <div className="spread" style={{ marginBottom: 8 }}>
+          <div className="card-title">当前请求来源</div>
+          <span className="pill">{detectedIp}</span>
+        </div>
+        <div className="kv">
+          <div className="kv-row"><span className="muted">X-Real-IP</span><span className="mono small">{xRealIp}</span></div>
+          <div className="kv-row"><span className="muted">X-Forwarded-For</span><span className="mono small">{xForwardedFor}</span></div>
+          <div className="kv-row"><span className="muted">CF-Connecting-IP</span><span className="mono small">{cfConnectingIp}</span></div>
+        </div>
+        {detectedIp === "127.0.0.1" ? (
+          <p className="small muted" style={{ marginTop: 8 }}>
+            代理头为空或只包含回环地址，请检查 nginx 是否传递 X-Real-IP / X-Forwarded-For。
+          </p>
+        ) : null}
+      </div>
+
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-head">
           <div className="card-title">最近审计</div>
@@ -132,7 +161,7 @@ export default async function RiskPage() {
                 const level = risk?.level ?? riskLevel(score, settings);
                 return (
                   <tr key={row.id}>
-                    <td className="mono small">{row.ts.replace("T", " ").replace("Z", "")}</td>
+                    <td className="mono small">{formatDateTime(row.ts)}</td>
                     <td><span className="pill">{row.event}</span></td>
                     <td>{row.username || (row.user_id ? `#${row.user_id}` : "-")}</td>
                     <td className="mono small">{row.ip || "-"}</td>
