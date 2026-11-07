@@ -107,14 +107,15 @@ location / {
 
 ### 外部 OAuth2 登录服务
 
-最高管理员在「登录入口」添加朋友的 OAuth2 服务：
+最高管理员在「登录入口」添加外部 OAuth2 登录服务：
 
 - 名称、图标 URL、Client ID / Secret
 - 授权地址、Token 地址、UserInfo 地址、scope
 - 统一回调地址：`{AUTH_PUBLIC_URL}/api/oauth/callback`
 
-对方 UserInfo 必须返回 `sub`（或 `id`）与 `email`；只有 `email_verified: true` 才会自动匹配/创建本地账号。
-已绑定过的 `sub` 再次登录会直接复用本地账号。
+该服务 UserInfo 必须返回 `sub`（或 `id`）。未绑定的第三方账户首次登录会跳转到本地账户绑定页，
+需要使用本地用户名/密码（启用 TOTP 时还需动态码）确认一次；绑定后再次登录直接复用本地账号。
+不再按邮箱自动创建或接管账号。
 
 > 外部登录的 `client_secret` 保存在 `data/auth.db`，请确保数据库文件权限为 600 并做好备份。
 > 旧的 STOTP 绑定仍兼容，但新部署推荐 TOTP / Passkey；设置页已不再显示 STOTP 绑定入口。
@@ -269,6 +270,10 @@ npm run e2e:rbac
 | 外部登录服务 | Passkey |
 | --- | --- |
 | ![logins](docs/screenshots/logins.png) | ![passkey](docs/screenshots/passkey.png) |
+
+| 第三方账户绑定 | 接入文档 |
+| --- | --- |
+| ![link](docs/screenshots/link-account.png) | ![docs](docs/screenshots/docs-v2.png) |
 
 ## 已知限制
 

@@ -35,7 +35,7 @@ export default async function LoginOtpPage({
           </div>
         </div>
         <h1 className="auth-title">输入动态验证码</h1>
-        <p className="auth-sub">密码已验证，最后确认你的设备</p>
+        <p className="auth-sub">密码已验证，请确认设备</p>
         <OtpForm ticket={ticket} next={next} initialError={error} />
         <div className="auth-foot">
           <Link href={`/login?next=${encodeURIComponent(next)}`}>返回重新登录</Link>

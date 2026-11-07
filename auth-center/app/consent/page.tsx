@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BRAND } from "@/lib/config";
 import { HttpError } from "@/lib/http";
@@ -88,7 +88,7 @@ export default async function ConsentPage({
         </div>
         <h1 className="auth-title">授权 {input.client.name}</h1>
         <p className="auth-sub">
-          {input.client.description || "该应用请求访问你的账户信息。"}
+          {input.client.description || "该应用请求访问账户信息。"}
         </p>
 
         <div className="card card-pad" style={{ marginBottom: 16, boxShadow: "none" }}>
@@ -102,7 +102,7 @@ export default async function ConsentPage({
             ))}
           </ul>
           <div className="hint">
-            同意后可在「我的授权」中随时撤销。你的密码不会被共享。
+            同意后可在「我的授权」中随时撤销。密码不会共享。
           </div>
         </div>
 

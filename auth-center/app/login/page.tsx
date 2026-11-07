@@ -31,8 +31,7 @@ export default async function LoginPage({
             <div className="card-sub">统一登录中心</div>
           </div>
         </div>
-        <h1 className="auth-title">登录你的账号</h1>
-        <p className="auth-sub">输入用户名和密码继续</p>
+        <h1 className="auth-title">登录账户</h1>
         <LoginForm next={next} initialError={error} />
         <PasskeyLoginButton next={next} />
         {providers.length ? (
