@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PUBLIC_URL, SESSION_TTL_SECONDS, STOTP_ENABLED } from "@/lib/config";
+import { PUBLIC_URL, SESSION_TTL_SECONDS } from "@/lib/config";
 import { hashPassword, verifyPassword } from "@/lib/crypto";
 import { audit, findUserByUsername, getDb, nowIso } from "@/lib/db";
 import {
@@ -15,7 +15,6 @@ import {
 } from "@/lib/http";
 import { createSession, sessionCookieOptions } from "@/lib/session";
 import { publicUser } from "@/lib/users";
-import { getBinding } from "@/lib/stotp-store";
 import { createChallenge } from "@/lib/login-challenge";
 import { isIpBlocked } from "@/lib/ip-rules";
 import { decryptPasswordField } from "@/lib/password-crypto";
@@ -120,7 +119,6 @@ export async function POST(req: NextRequest) {
     clearLoginFailures(accountKey);
     const remember = body.remember === true || body.remember === "1" || body.remember === "on";
     const ttl = remember ? 30 * 24 * 3600 : SESSION_TTL_SECONDS;
-    const binding = getBinding(user.id);
     if (user.totp_secret) {
       const { ticket, expiresIn } = createChallenge(user.id, ttl, clientIp(req), "totp");
       audit("totp_login_challenge", {
@@ -131,24 +129,6 @@ export async function POST(req: NextRequest) {
         ok: false,
         otp_required: true,
         method: "totp",
-        ticket,
-        expires_in: expiresIn,
-        next,
-      });
-    }
-    if (binding && !STOTP_ENABLED) {
-      throw new HttpError(503, "stotp_unavailable", "STOTP 配置缺失，暂时无法登录");
-    }
-    if (binding) {
-      const { ticket, expiresIn } = createChallenge(user.id, ttl, clientIp(req), "stotp");
-      audit("stotp_login_challenge", {
-        userId: user.id, clientId: binding.client_id, ip: clientIp(req),
-      });
-      if (formMode) return otpRedirect(next, ticket);
-      return NextResponse.json({
-        ok: false,
-        otp_required: true,
-        method: "stotp",
         ticket,
         expires_in: expiresIn,
         next,

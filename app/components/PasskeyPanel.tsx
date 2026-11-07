@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
+import { PasswordInput } from "./PasswordInput";
+import { encryptPassword } from "@/lib/password-client";
 
 interface PasskeyItem {
   id: number;
@@ -11,17 +13,41 @@ interface PasskeyItem {
   lastUsedAt: string | null;
 }
 
-export function PasskeyPanel({ passkeys }: { passkeys: PasskeyItem[] }) {
+export function PasskeyPanel({ passkeys, totpEnabled = false }: {
+  passkeys: PasskeyItem[];
+  totpEnabled?: boolean;
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
+  async function encrypted() {
+    return encryptPassword(password);
+  }
+
   async function add() {
+    if (!password) {
+      setMsg({ ok: false, text: "请先输入当前密码" });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
-      const optionsRes = await fetch("/api/settings/passkeys/options", { method: "POST" });
+      let enc;
+      try {
+        enc = await encrypted();
+      } catch {
+        setMsg({ ok: false, text: "当前环境无法加密密码，请使用 HTTPS 访问" });
+        return;
+      }
+      const optionsRes = await fetch("/api/settings/passkeys/options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...enc, code }),
+      });
       const options = await optionsRes.json().catch(() => null);
       if (!optionsRes.ok) {
         setMsg({ ok: false, text: options?.error?.message || "无法生成 Passkey 注册参数" });
@@ -31,7 +57,7 @@ export function PasskeyPanel({ passkeys }: { passkeys: PasskeyItem[] }) {
       const res = await fetch("/api/settings/passkeys/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ response, name: name || "Passkey" }),
+        body: JSON.stringify({ response, name: name || "Passkey", ...enc, code }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -39,6 +65,7 @@ export function PasskeyPanel({ passkeys }: { passkeys: PasskeyItem[] }) {
         return;
       }
       setName("");
+      setCode("");
       setMsg({ ok: true, text: "Passkey 已添加" });
       router.refresh();
     } catch (error) {
@@ -53,10 +80,25 @@ export function PasskeyPanel({ passkeys }: { passkeys: PasskeyItem[] }) {
   }
 
   async function remove(id: number) {
+    if (!password) {
+      setMsg({ ok: false, text: "删除 Passkey 前请输入当前密码" });
+      return;
+    }
     if (!confirm("删除这个 Passkey？")) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/settings/passkeys/${id}`, { method: "DELETE" });
+      let enc;
+      try {
+        enc = await encrypted();
+      } catch {
+        setMsg({ ok: false, text: "当前环境无法加密密码，请使用 HTTPS 访问" });
+        return;
+      }
+      const res = await fetch(`/api/settings/passkeys/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...enc, code }),
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         setMsg({ ok: false, text: data?.error?.message || "删除失败" });
@@ -96,6 +138,21 @@ export function PasskeyPanel({ passkeys }: { passkeys: PasskeyItem[] }) {
                 disabled={busy}>删除</button>
             </div>
           ))}
+        </div>
+      ) : null}
+      <div className="field">
+        <label className="label" htmlFor="passkey-password">当前密码</label>
+        <PasswordInput id="passkey-password" value={password} onChange={setPassword}
+          autoComplete="current-password" required />
+      </div>
+      {totpEnabled ? (
+        <div className="field">
+          <label className="label" htmlFor="passkey-code">TOTP 动态码</label>
+          <input id="passkey-code" className="input otp-input" inputMode="numeric"
+            autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000" />
         </div>
       ) : null}
       <div className="row" style={{ alignItems: "flex-end" }}>

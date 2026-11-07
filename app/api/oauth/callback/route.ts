@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PUBLIC_URL, SESSION_TTL_SECONDS, STOTP_ENABLED } from "@/lib/config";
+import { PUBLIC_URL, SESSION_TTL_SECONDS } from "@/lib/config";
 import { audit, findUserById, getDb, nowIso } from "@/lib/db";
 import { clientIp } from "@/lib/http";
 import { isIpBlocked } from "@/lib/ip-rules";
@@ -8,7 +8,6 @@ import {
   consumeOAuthState, createLinkTicket, findProviderLink, getProvider, OAUTH_STATE_COOKIE,
 } from "@/lib/login-providers";
 import { createSession, sessionCookieOptions } from "@/lib/session";
-import { getBinding } from "@/lib/stotp-store";
 import { publicUser } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -155,33 +154,15 @@ export async function GET(req: NextRequest) {
   const user = findUserById(link.user_id);
   if (!user || user.status !== "active") return fail("账号不存在或已被禁用", row.next);
 
-  // 第三方登录不能绕过本地第二因素
-  const otp = (() => {
-    if (user.totp_secret) {
-      return { method: "totp" as const, challenge: createChallenge(
-        user.id, SESSION_TTL_SECONDS, clientIp(req), "totp"
-      ) };
-    }
-    const binding = getBinding(user.id);
-    if (binding) {
-      if (!STOTP_ENABLED) return { method: "unavailable" as const };
-      return { method: "stotp" as const, challenge: createChallenge(
-        user.id, SESSION_TTL_SECONDS, clientIp(req), "stotp"
-      ) };
-    }
-    return null;
-  })();
-
-  if (otp?.method === "unavailable") {
-    return fail("账号启用了第二因素，但验证服务不可用", row.next);
-  }
-  if (otp) {
-    audit(otp.method === "totp" ? "totp_login_challenge" : "stotp_login_challenge", {
+  // 第三方登录不能绕过本地 TOTP
+  if (user.totp_secret) {
+    const challenge = createChallenge(user.id, SESSION_TTL_SECONDS, clientIp(req), "totp");
+    audit("totp_login_challenge", {
       userId: user.id, clientId: provider.key, ip: clientIp(req),
       detail: "provider",
     });
     const url = new URL("/login/otp", PUBLIC_URL);
-    url.searchParams.set("ticket", otp.challenge.ticket);
+    url.searchParams.set("ticket", challenge.ticket);
     url.searchParams.set("next", row.next);
     return NextResponse.redirect(url, 303);
   }

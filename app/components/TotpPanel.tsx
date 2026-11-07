@@ -20,10 +20,25 @@ export function TotpPanel({ enabled }: { enabled: boolean }) {
   const [busy, setBusy] = useState(false);
 
   async function startSetup() {
+    if (!password) {
+      setMsg({ ok: false, text: "请先输入当前密码" });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/settings/totp/setup", { method: "POST" });
+      let encrypted;
+      try {
+        encrypted = await encryptPassword(password);
+      } catch {
+        setMsg({ ok: false, text: "当前环境无法加密密码，请使用 HTTPS 访问" });
+        return;
+      }
+      const res = await fetch("/api/settings/totp/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...encrypted }),
+      });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setMsg({ ok: false, text: data?.error?.message || "无法生成 TOTP" });
@@ -41,10 +56,17 @@ export function TotpPanel({ enabled }: { enabled: boolean }) {
     setBusy(true);
     setMsg(null);
     try {
+      let encrypted;
+      try {
+        encrypted = await encryptPassword(password);
+      } catch {
+        setMsg({ ok: false, text: "当前环境无法加密密码，请使用 HTTPS 访问" });
+        return;
+      }
       const res = await fetch("/api/settings/totp/enable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ secret: setup.secret, code }),
+        body: JSON.stringify({ code, ...encrypted }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -53,6 +75,7 @@ export function TotpPanel({ enabled }: { enabled: boolean }) {
       }
       setSetup(null);
       setCode("");
+      setPassword("");
       setMsg({ ok: true, text: "TOTP 已启用，下次登录需要输入验证码" });
       router.refresh();
     } finally {
@@ -76,7 +99,7 @@ export function TotpPanel({ enabled }: { enabled: boolean }) {
       const res = await fetch("/api/settings/totp/disable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...encrypted }),
+        body: JSON.stringify({ code, ...encrypted }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -84,6 +107,7 @@ export function TotpPanel({ enabled }: { enabled: boolean }) {
         return;
       }
       setPassword("");
+      setCode("");
       setMsg({ ok: true, text: "TOTP 已关闭" });
       router.refresh();
     } finally {
@@ -114,6 +138,14 @@ export function TotpPanel({ enabled }: { enabled: boolean }) {
             <PasswordInput id="totp-password" value={password} onChange={setPassword}
               autoComplete="current-password" required />
           </div>
+          <div className="field">
+            <label className="label" htmlFor="totp-disable-code">当前 6 位验证码</label>
+            <input id="totp-disable-code" className="input otp-input" inputMode="numeric"
+              autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000" required />
+          </div>
           <div className="form-actions">
             <button className="btn btn-danger" disabled={busy}>
               {busy ? "处理中…" : "关闭 TOTP"}
@@ -138,20 +170,32 @@ export function TotpPanel({ enabled }: { enabled: boolean }) {
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   placeholder="000000" required autoFocus />
               </div>
+              <div className="field">
+                <label className="label" htmlFor="totp-enable-password">当前密码</label>
+                <PasswordInput id="totp-enable-password" value={password}
+                  onChange={setPassword} autoComplete="current-password" required />
+              </div>
               <div className="btn-row">
                 <button className="btn btn-primary" disabled={busy}>
                   {busy ? "验证中…" : "启用 TOTP"}
                 </button>
                 <button type="button" className="btn btn-ghost"
-                  onClick={() => { setSetup(null); setCode(""); }}>取消</button>
+                  onClick={() => { setSetup(null); setCode(""); setPassword(""); }}>取消</button>
               </div>
             </div>
           </div>
         </form>
       ) : (
-        <button className="btn btn-primary" onClick={startSetup} disabled={busy}>
-          {busy ? "生成中…" : "启用 TOTP"}
-        </button>
+        <div style={{ maxWidth: 360 }}>
+          <div className="field">
+            <label className="label" htmlFor="totp-setup-password">当前密码</label>
+            <PasswordInput id="totp-setup-password" value={password}
+              onChange={setPassword} autoComplete="current-password" required />
+          </div>
+          <button className="btn btn-primary" onClick={startSetup} disabled={busy}>
+            {busy ? "生成中…" : "启用 TOTP"}
+          </button>
+        </div>
       )}
     </div>
   );

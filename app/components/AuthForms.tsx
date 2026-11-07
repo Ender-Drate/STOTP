@@ -176,7 +176,7 @@ export function OtpForm({ ticket, next, initialError = "" }: {
         />
       </div>
       <p className="small muted" style={{ margin: "4px 0 0" }}>
-        打开 TOTP / STOTP App 查看当前 6 位验证码，30 秒刷新一次。
+        打开 TOTP App 查看当前 6 位验证码，30 秒刷新一次。
       </p>
       <button type="submit" className="btn btn-primary"
         style={{ width: "100%", height: 42, marginTop: 16 }} disabled={busy}>

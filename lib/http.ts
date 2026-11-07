@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PUBLIC_URL, TRUST_PROXY } from "./config";
+import { getDb, nowSec } from "./db";
 import { firstValidIp } from "./ip";
 
 export class HttpError extends Error {
@@ -94,25 +95,40 @@ export function clientIp(req: NextRequest): string {
   return firstValidIp([req.headers.get("x-real-ip")]) || "127.0.0.1";
 }
 
-const buckets = new Map<string, { count: number; resetAt: number }>();
-
 export function rateLimit(key: string, max: number, windowSeconds: number): boolean {
   if (process.env.AUTH_E2E === "1") return true;
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt < now) {
-    buckets.set(key, { count: 1, resetAt: now + windowSeconds * 1000 });
-    return true;
+  const db = getDb();
+  const now = nowSec();
+  const resetAt = now + windowSeconds;
+  db.prepare(
+    `INSERT INTO rate_limits(key, count, reset_at) VALUES (?, 1, ?)
+     ON CONFLICT(key) DO UPDATE SET
+       count = CASE WHEN rate_limits.reset_at <= ? THEN 1 ELSE rate_limits.count + 1 END,
+       reset_at = CASE WHEN rate_limits.reset_at <= ? THEN excluded.reset_at ELSE rate_limits.reset_at END`
+  ).run(key, resetAt, now, now);
+  const row = db.prepare("SELECT count FROM rate_limits WHERE key = ?")
+    .get(key) as { count: number } | undefined;
+  if (Math.random() < 0.02) {
+    db.prepare("DELETE FROM rate_limits WHERE reset_at < ?").run(now - 3600);
   }
-  if (bucket.count >= max) return false;
-  bucket.count += 1;
-  return true;
+  return (row?.count ?? 1) <= max;
 }
 
 /** 浏览器同源校验，防止跨站表单提交；无 Origin 的服务器调用放行。 */
 export function assertSameOrigin(req: NextRequest) {
+  const method = req.method.toUpperCase();
+  const unsafe = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
   const origin = req.headers.get("origin");
-  if (!origin) return;
+  if (!origin) {
+    // 浏览器写请求必须带 Origin；同源 fetch 可用 Sec-Fetch-Site 兜底。
+    const sameSite = req.headers.get("sec-fetch-site") === "same-origin";
+    if (unsafe && !sameSite
+      && process.env.AUTH_E2E !== "1"
+      && process.env.AUTH_ALLOW_NO_ORIGIN !== "1") {
+      throw new HttpError(403, "bad_origin", "缺少 Origin，跨站请求被拒绝");
+    }
+    return;
+  }
   let originHost: string;
   try {
     originHost = new URL(origin).host;

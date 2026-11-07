@@ -5,6 +5,7 @@ import { readKeyFile, writeKeyFile } from "./db";
 import { safeEqual } from "./crypto";
 
 const globalForAvatar = globalThis as unknown as { __authCenterAvatarSecret?: Buffer };
+const TTL = 60 * 60;
 
 function secret(): Buffer {
   if (globalForAvatar.__authCenterAvatarSecret) return globalForAvatar.__authCenterAvatarSecret;
@@ -28,15 +29,18 @@ function secret(): Buffer {
   return generated;
 }
 
-export function avatarSignature(uid: number): string {
-  return createHmac("sha256", secret()).update(String(uid)).digest("base64url");
+export function avatarSignature(uid: number, expiresAt: number): string {
+  return createHmac("sha256", secret()).update(`${uid}.${expiresAt}`).digest("base64url");
 }
 
 export function avatarUrl(uid: number): string {
-  return `${PUBLIC_URL}/api/oauth/head?uid=${encodeURIComponent(String(uid))}&sig=${encodeURIComponent(avatarSignature(uid))}`;
+  const expiresAt = Math.floor(Date.now() / 1000) + TTL;
+  return `${PUBLIC_URL}/api/oauth/head?uid=${encodeURIComponent(String(uid))}`
+    + `&exp=${expiresAt}&sig=${encodeURIComponent(avatarSignature(uid, expiresAt))}`;
 }
 
-export function verifyAvatarSignature(uid: number, signature: string): boolean {
+export function verifyAvatarSignature(uid: number, expiresAt: number, signature: string): boolean {
   if (!Number.isInteger(uid) || uid <= 0 || !signature) return false;
-  return safeEqual(avatarSignature(uid), signature);
+  if (!Number.isInteger(expiresAt) || expiresAt < Math.floor(Date.now() / 1000)) return false;
+  return safeEqual(avatarSignature(uid, expiresAt), signature);
 }

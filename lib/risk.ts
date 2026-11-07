@@ -156,7 +156,7 @@ export function ipRiskScores(): Map<string, IpRisk> {
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const rows = getDb().prepare(
     `SELECT ip, COUNT(*) AS failures FROM audit
-     WHERE event IN ('login_failed', 'totp_login_deny', 'stotp_login_deny')
+     WHERE event IN ('login_failed', 'totp_login_deny')
        AND ts >= ? AND ip IS NOT NULL GROUP BY ip`
   ).all(since) as unknown as Array<{ ip: string; failures: number }>;
   const observations = getDb().prepare(

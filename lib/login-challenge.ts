@@ -10,14 +10,14 @@ export interface LoginChallenge {
   expires_at: number;
   ttl_seconds: number;
   ip: string;
-  method: "stotp" | "totp";
+  method: "totp";
   attempts: number;
   used: number;
   created_at: number;
 }
 
 export function createChallenge(
-  userId: number, ttlSeconds: number, ip: string, method: "stotp" | "totp" = "stotp"
+  userId: number, ttlSeconds: number, ip: string, method: "totp" = "totp"
 ): { ticket: string; expiresIn: number } {
   const ticket = randomToken(32);
   const now = nowSec();
@@ -35,6 +35,7 @@ export function getChallenge(ticket: string, ip: string): LoginChallenge | undef
     "SELECT * FROM login_challenges WHERE token_hash = ?"
   ).get(sha256(ticket)) as unknown as LoginChallenge | undefined;
   if (!row) return undefined;
+  if (row.method !== "totp") return undefined;
   if (row.used || row.expires_at < nowSec() || row.ip !== ip) return undefined;
   if (row.attempts >= MAX_CHALLENGE_ATTEMPTS) return undefined;
   return row;

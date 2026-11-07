@@ -14,8 +14,6 @@ import {
 } from "@/lib/http";
 import { failChallenge, getChallenge, markChallengeUsed } from "@/lib/login-challenge";
 import { createSession, sessionCookieOptions } from "@/lib/session";
-import { getBinding, touchBinding } from "@/lib/stotp-store";
-import { stotpConfigured, stotpLoginVerify, StotpError } from "@/lib/stotp";
 import { verifyTotp } from "@/lib/totp";
 import { isIpBlocked } from "@/lib/ip-rules";
 import { publicUser } from "@/lib/users";
@@ -34,11 +32,6 @@ function otpPage(next: string, ticket: string, error?: string): NextResponse {
   url.searchParams.set("next", next);
   if (error) url.searchParams.set("error", error);
   return NextResponse.redirect(url, 303);
-}
-
-function failure(next: string, ticket: string, formMode: boolean, error: HttpError) {
-  if (formMode) return otpPage(next, ticket, error.message);
-  return errorResponse(error);
 }
 
 export async function POST(req: NextRequest) {
@@ -87,62 +80,23 @@ export async function POST(req: NextRequest) {
       return res;
     }
 
-    if (challenge.method === "totp") {
-      if (!user.totp_secret) {
-        throw new HttpError(401, "otp_expired", "TOTP 未启用，请重新登录");
-      }
-      if (!verifyTotp(user.totp_secret, code)) {
-        const attempts = failChallenge(ticket);
-        audit("totp_login_deny", {
-          userId: user.id, ip: clientIp(req),
-          detail: attempts >= 5 ? "too_many_attempts" : "code_invalid",
-        });
-        throw new HttpError(401, "otp_invalid", attempts >= 5
-          ? "验证码错误次数过多，请重新登录"
-          : "验证码不正确");
-      }
-      return complete("totp_login_allow");
+    if (challenge.method !== "totp") {
+      throw new HttpError(401, "otp_expired", "验证会话已过期，请重新登录");
     }
-
-    if (!stotpConfigured()) {
-      throw new HttpError(503, "stotp_unavailable", "STOTP 未启用，请联系管理员");
+    if (!user.totp_secret) {
+      throw new HttpError(401, "otp_expired", "TOTP 未启用，请重新登录");
     }
-    const binding = getBinding(user.id);
-    if (!binding) throw new HttpError(401, "otp_expired", "STOTP 绑定已失效，请重新登录");
-
-    let result: Awaited<ReturnType<typeof stotpLoginVerify>>;
-    try {
-      result = await stotpLoginVerify(binding.client_id, code);
-    } catch (error) {
-      if (error instanceof StotpError) {
-        audit("stotp_login_deny", {
-          userId: user.id, clientId: binding.client_id, ip: clientIp(req),
-          detail: error.code,
-        });
-        const status = error.code === "unavailable" || error.code === "disabled" ? 503 : 502;
-        const httpError = new HttpError(status, error.code, "STOTP 验证服务暂不可用，请稍后重试");
-        return failure(next, ticket, formMode, httpError);
-      }
-      throw error;
-    }
-
-    const accountMismatch = Boolean(
-      binding.account_id && result.claims.sub !== binding.account_id
-    );
-    if (result.result !== "allow" || accountMismatch) {
+    if (!verifyTotp(user.totp_secret, code)) {
       const attempts = failChallenge(ticket);
-      audit("stotp_login_deny", {
-        userId: user.id, clientId: binding.client_id, ip: clientIp(req),
-        detail: attempts >= 5 ? "too_many_attempts" : result.reason || "deny",
+      audit("totp_login_deny", {
+        userId: user.id, ip: clientIp(req),
+        detail: attempts >= 5 ? "too_many_attempts" : "code_invalid",
       });
-      const message = attempts >= 5
+      throw new HttpError(401, "otp_invalid", attempts >= 5
         ? "验证码错误次数过多，请重新登录"
-        : "验证码不正确或设备不匹配";
-      throw new HttpError(401, "otp_invalid", message);
+        : "验证码不正确");
     }
-
-    touchBinding(user.id);
-    return complete("stotp_login_allow", binding.client_id);
+    return complete("totp_login_allow");
   } catch (error) {
     if (formMode && error instanceof HttpError) {
       if (error.code === "otp_expired") {

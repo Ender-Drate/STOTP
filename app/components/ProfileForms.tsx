@@ -15,9 +15,10 @@ interface Props {
     role: string;
     createdAt: string;
   };
+  totpEnabled?: boolean;
 }
 
-export function ProfileForms({ user }: Props) {
+export function ProfileForms({ user, totpEnabled = false }: Props) {
   const router = useRouter();
   const [profile, setProfile] = useState({
     displayName: user.displayName || "",
@@ -27,7 +28,7 @@ export function ProfileForms({ user }: Props) {
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [profileBusy, setProfileBusy] = useState(false);
 
-  const [password, setPassword] = useState({ current: "", next: "", confirm: "" });
+  const [password, setPassword] = useState({ current: "", next: "", confirm: "", code: "" });
   const [passwordMsg, setPasswordMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [passwordBusy, setPasswordBusy] = useState(false);
 
@@ -78,6 +79,7 @@ export function ProfileForms({ user }: Props) {
           currentPassword_enc: currentEnc.password_enc,
           newPassword_enc: nextEnc.password_enc,
           password_key: currentEnc.password_key,
+          code: password.code,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -85,8 +87,9 @@ export function ProfileForms({ user }: Props) {
         setPasswordMsg({ ok: false, text: data?.error?.message || "修改失败" });
         return;
       }
-      setPassword({ current: "", next: "", confirm: "" });
-      setPasswordMsg({ ok: true, text: "密码已更新" });
+      setPassword({ current: "", next: "", confirm: "", code: "" });
+      // 改密会撤销全部会话和令牌，必须重新登录
+      window.location.assign("/login?next=/dashboard");
     } finally {
       setPasswordBusy(false);
     }
@@ -155,6 +158,15 @@ export function ProfileForms({ user }: Props) {
             onChange={(value) => setPassword({ ...password, confirm: value })}
             autoComplete="new-password" required />
         </div>
+        {totpEnabled ? (
+          <div className="field">
+            <label className="label">TOTP 动态码</label>
+            <input className="input otp-input" inputMode="numeric" autoComplete="one-time-code"
+              maxLength={6} pattern="[0-9]{6}" value={password.code}
+              onChange={(e) => setPassword({ ...password, code: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+              placeholder="000000" required />
+          </div>
+        ) : null}
         <div className="form-actions">
           <button className="btn btn-primary" disabled={passwordBusy}>
             {passwordBusy ? "更新中…" : "更新密码"}

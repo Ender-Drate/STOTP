@@ -14,7 +14,7 @@ export async function GET() {
       userinfo_endpoint: `${base}/api/oauth/userinfo`,
       revocation_endpoint: `${base}/api/oauth/revoke`,
       jwks_uri: `${base}/api/oauth/jwks`,
-      scopes_supported: [...SUPPORTED_SCOPES, "user:email", "user:profile"],
+      scopes_supported: [...SUPPORTED_SCOPES],
       response_types_supported: ["code"],
       response_modes_supported: ["query"],
       grant_types_supported: ["authorization_code", "refresh_token"],

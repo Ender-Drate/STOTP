@@ -35,12 +35,6 @@ export default async function UsersPage({
       .all()) as unknown as User[];
   const roles = listRoles();
   const roleById = new Map(roles.map((role) => [role.id, role]));
-  const bindings = new Set<number>();
-  for (const row of getDb().prepare(
-    "SELECT user_id FROM stotp_bindings WHERE status = 'active'"
-  ).all() as Array<{ user_id: number }>) {
-    bindings.add(row.user_id);
-  }
 
   return (
     <>
@@ -63,7 +57,6 @@ export default async function UsersPage({
               <th>ID</th>
               <th>用户</th>
               <th>邮箱</th>
-              <th>STOTP</th>
               <th>权限等级</th>
               <th>状态</th>
               <th>注册时间</th>
@@ -78,13 +71,6 @@ export default async function UsersPage({
                   <td className="num">{user.id}</td>
                   <td style={{ fontWeight: 600 }}>{user.display_name || user.username}</td>
                   <td className="muted">{user.email}</td>
-                  <td>
-                    {bindings.has(user.id) ? (
-                      <span className="pill pill-green">已绑定</span>
-                    ) : (
-                      <span className="pill">未绑定</span>
-                    )}
-                  </td>
                   <td>
                     <span className={`pill ${role?.key === "superadmin" ? "pill-blue" : ""}`}>
                       {role?.name || user.role}
@@ -107,8 +93,6 @@ export default async function UsersPage({
                       }))}
                       canAssignRoles={isSuperAdmin(me)}
                       canDisable={hasPermission(me, "users.disable")}
-                      canManageStotp={hasPermission(me, "stotp.manage")}
-                      stotpBound={bindings.has(user.id)}
                     />
                   </td>
                 </tr>

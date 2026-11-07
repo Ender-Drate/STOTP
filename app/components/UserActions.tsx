@@ -11,7 +11,7 @@ interface RoleOption {
 
 export function UserActions({
   userId, roleId, status, isSelf,
-  roles, canAssignRoles, canDisable, canManageStotp, stotpBound,
+  roles, canAssignRoles, canDisable,
 }: {
   userId: number;
   roleId: number;
@@ -20,8 +20,6 @@ export function UserActions({
   roles: RoleOption[];
   canAssignRoles: boolean;
   canDisable: boolean;
-  canManageStotp: boolean;
-  stotpBound: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -37,22 +35,6 @@ export function UserActions({
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         alert(data?.error?.message || "操作失败");
-        return;
-      }
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function unbindStotp() {
-    if (!confirm("解绑该用户的 STOTP 设备？解绑后登录不再要求验证码。")) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/users/${userId}/stotp`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        alert(data?.error?.message || "解绑失败");
         return;
       }
       router.refresh();
@@ -81,12 +63,6 @@ export function UserActions({
         <option value="active">正常</option>
         <option value="disabled">禁用</option>
       </select>
-      {stotpBound && canManageStotp ? (
-        <button type="button" className="btn btn-sm btn-danger"
-          onClick={unbindStotp} disabled={busy}>
-          解绑 STOTP
-        </button>
-      ) : null}
     </div>
   );
 }

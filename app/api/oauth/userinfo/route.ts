@@ -20,17 +20,17 @@ export async function GET(req: NextRequest) {
   const header = req.headers.get("authorization") || "";
   if (!header.toLowerCase().startsWith("bearer ")) return unauthorized();
   const token = header.slice(7).trim();
+  const row = getDb().prepare(
+    "SELECT revoked, client_id FROM tokens WHERE token_hash = ?"
+  ).get(sha256(token)) as { revoked: number; client_id: string } | undefined;
+  if (!row || row.revoked) return unauthorized();
   let claims: Record<string, unknown>;
   try {
-    claims = verifyJwt(token);
+    claims = verifyJwt(token, { audience: row.client_id });
   } catch {
     return unauthorized();
   }
   if (claims.typ !== "access") return unauthorized();
-  const row = getDb().prepare(
-    "SELECT revoked FROM tokens WHERE token_hash = ?"
-  ).get(sha256(token)) as { revoked: number } | undefined;
-  if (!row || row.revoked) return unauthorized();
   const user = findUserById(Number(claims.sub));
   if (!user || user.status !== "active") return unauthorized();
 

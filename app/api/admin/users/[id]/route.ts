@@ -38,15 +38,19 @@ export async function PATCH(
     if (!changingRole && !changingStatus) {
       throw new HttpError(400, "invalid_request", "没有需要修改的字段");
     }
+    // 权限检查先于“是否修改自己”，避免用 400/403 差异判断目标 ID 是否是自己。
+    if (changingRole && !isSuperAdmin(actor)) {
+      throw new HttpError(403, "forbidden", "只有最高管理员可以设置权限等级");
+    }
+    if (changingStatus && !hasPermission(actor, "users.disable")) {
+      throw new HttpError(403, "forbidden", "没有禁用/启用用户的权限");
+    }
     if (target.id === actor.id && (changingRole || changingStatus)) {
       throw new HttpError(400, "invalid_request", "不能修改自己的角色或状态");
     }
 
     let role;
     if (changingRole) {
-      if (!isSuperAdmin(actor)) {
-        throw new HttpError(403, "forbidden", "只有最高管理员可以设置权限等级");
-      }
       role = getRole(Number(body.roleId));
       if (!role) throw new HttpError(400, "invalid_request", "权限等级不存在");
       if (target.role_id === role.id) role = undefined;
@@ -54,9 +58,6 @@ export async function PATCH(
 
     let status = target.status;
     if (changingStatus) {
-      if (!hasPermission(actor, "users.disable")) {
-        throw new HttpError(403, "forbidden", "没有禁用/启用用户的权限");
-      }
       if (!["active", "disabled"].includes(String(body.status))) {
         throw new HttpError(400, "invalid_request", "状态不合法");
       }
