@@ -200,15 +200,17 @@ export function RoleManager({ roles }: { roles: RoleView[] }) {
             </div>
             <div className="row" style={{ marginTop: 14, justifyContent: "space-between" }}>
               <span className="mono">{role.key}</span>
-              {!role.is_system ? (
-                <div className="btn-row">
+              <div className="btn-row">
+                {role.key !== "superadmin" ? (
                   <button className="btn btn-sm btn-ghost" onClick={() => startEdit(role)}>
                     编辑
                   </button>
+                ) : null}
+                {!role.is_system ? (
                   <button className="btn btn-sm btn-danger" onClick={() => remove(role)}
                     disabled={busy}>删除</button>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
             </div>
           </div>
         ))}

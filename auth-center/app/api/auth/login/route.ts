@@ -67,11 +67,26 @@ export async function POST(req: NextRequest) {
     const remember = body.remember === true || body.remember === "1" || body.remember === "on";
     const ttl = remember ? 30 * 24 * 3600 : SESSION_TTL_SECONDS;
     const binding = getBinding(user.id);
+    if (user.totp_secret) {
+      const { ticket, expiresIn } = createChallenge(user.id, ttl, clientIp(req), "totp");
+      audit("totp_login_challenge", {
+        userId: user.id, ip: clientIp(req),
+      });
+      if (formMode) return otpRedirect(next, ticket);
+      return NextResponse.json({
+        ok: false,
+        otp_required: true,
+        method: "totp",
+        ticket,
+        expires_in: expiresIn,
+        next,
+      });
+    }
     if (binding && !STOTP_ENABLED) {
       throw new HttpError(503, "stotp_unavailable", "STOTP 配置缺失，暂时无法登录");
     }
     if (binding) {
-      const { ticket, expiresIn } = createChallenge(user.id, ttl, clientIp(req));
+      const { ticket, expiresIn } = createChallenge(user.id, ttl, clientIp(req), "stotp");
       audit("stotp_login_challenge", {
         userId: user.id, clientId: binding.client_id, ip: clientIp(req),
       });
@@ -79,6 +94,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ok: false,
         otp_required: true,
+        method: "stotp",
         ticket,
         expires_in: expiresIn,
         next,

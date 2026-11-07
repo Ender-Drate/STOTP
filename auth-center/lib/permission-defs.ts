@@ -4,6 +4,7 @@ export const PERMISSION_DEFS = [
   { key: "users.manage", label: "编辑用户资料/角色", group: "用户" },
   { key: "users.disable", label: "禁用 / 重新启用用户", group: "用户" },
   { key: "oauth.apps.manage", label: "接入 OAuth2 应用", group: "应用" },
+  { key: "login.providers.manage", label: "管理外部登录服务", group: "应用" },
   { key: "stotp.bind", label: "绑定 STOTP 设备", group: "STOTP" },
   { key: "stotp.manage", label: "管理他人 STOTP 绑定", group: "STOTP" },
   { key: "stats.view", label: "查看统计", group: "系统" },

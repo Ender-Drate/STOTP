@@ -34,7 +34,7 @@ export default async function LoginOtpPage({
             <div className="card-sub">两步验证</div>
           </div>
         </div>
-        <h1 className="auth-title">输入 STOTP 验证码</h1>
+        <h1 className="auth-title">输入动态验证码</h1>
         <p className="auth-sub">密码已验证，最后确认你的设备</p>
         <OtpForm ticket={ticket} next={next} initialError={error} />
         <div className="auth-foot">

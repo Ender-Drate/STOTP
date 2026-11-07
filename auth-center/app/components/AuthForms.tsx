@@ -117,7 +117,7 @@ export function OtpForm({ ticket, next, initialError = "" }: {
       <input type="hidden" name="next" value={next} />
       {error ? <div className="auth-error">{error}</div> : null}
       <div className="field">
-        <label className="label" htmlFor="otp">STOTP 验证码</label>
+        <label className="label" htmlFor="otp">动态验证码</label>
         <input
           id="otp" name="code" className="input otp-input" inputMode="numeric"
           autoComplete="one-time-code" autoFocus maxLength={6} pattern="[0-9]{6}"
@@ -127,7 +127,7 @@ export function OtpForm({ ticket, next, initialError = "" }: {
         />
       </div>
       <p className="small muted" style={{ margin: "4px 0 0" }}>
-        打开 STOTP App 查看当前 6 位验证码，30 秒刷新一次。
+        打开 TOTP / STOTP App 查看当前 6 位验证码，30 秒刷新一次。
       </p>
       <button type="submit" className="btn btn-primary"
         style={{ width: "100%", height: 42, marginTop: 16 }} disabled={busy}>

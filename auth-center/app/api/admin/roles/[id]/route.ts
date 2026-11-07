@@ -33,7 +33,9 @@ export async function PATCH(
     const { id } = await context.params;
     const role = getRole(Number(id));
     if (!role) throw new HttpError(404, "not_found", "权限等级不存在");
-    if (role.is_system) throw new HttpError(403, "forbidden", "系统内置权限等级不可修改");
+    if (role.key === "superadmin") {
+      throw new HttpError(403, "forbidden", "最高管理员等级不可修改");
+    }
     const body = await readJson<Body>(req);
     const name = text(body.name ?? role.name, "权限名称", 2, 40);
     const description = body.description === undefined

@@ -1,17 +1,15 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
 import { ProfileForms } from "@/app/components/ProfileForms";
-import { StotpPanel } from "@/app/components/StotpPanel";
-import { bindingView, getBinding } from "@/lib/stotp-store";
-import { stotpConfigured } from "@/lib/stotp";
-import { hasPermission } from "@/lib/permissions";
+import { TotpPanel } from "@/app/components/TotpPanel";
+import { PasskeyPanel } from "@/app/components/PasskeyPanel";
+import { listPasskeys } from "@/lib/passkeys";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const user = await currentUser();
   if (!user) redirect("/login?next=/dashboard/settings");
-  const binding = getBinding(user.id);
   return (
     <>
       <div className="page-head">
@@ -31,11 +29,13 @@ export default async function SettingsPage() {
           createdAt: user.created_at,
         }}
       />
-      <StotpPanel
-        binding={binding ? bindingView(binding) : null}
-        enabled={stotpConfigured()}
-        canBind={hasPermission(user, "stotp.bind")}
-      />
+      <TotpPanel enabled={Boolean(user.totp_secret)} />
+      <PasskeyPanel passkeys={listPasskeys(user.id).map((item) => ({
+        id: item.id,
+        name: item.name,
+        createdAt: item.created_at,
+        lastUsedAt: item.last_used_at,
+      }))} />
     </>
   );
 }

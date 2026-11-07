@@ -177,10 +177,71 @@ CREATE TABLE IF NOT EXISTS login_challenges (
   expires_at INTEGER NOT NULL,
   ttl_seconds INTEGER NOT NULL,
   ip TEXT NOT NULL,
+  method TEXT NOT NULL DEFAULT 'stotp',
   attempts INTEGER NOT NULL DEFAULT 0,
   used INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS passkeys (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  credential_id TEXT NOT NULL UNIQUE,
+  public_key TEXT NOT NULL,
+  counter INTEGER NOT NULL DEFAULT 0,
+  transports TEXT,
+  name TEXT,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+  token_hash TEXT PRIMARY KEY,
+  challenge TEXT NOT NULL,
+  user_id INTEGER,
+  type TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS login_providers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  icon_url TEXT,
+  client_id TEXT NOT NULL,
+  client_secret TEXT NOT NULL,
+  authorization_url TEXT NOT NULL,
+  token_url TEXT NOT NULL,
+  userinfo_url TEXT NOT NULL,
+  scopes TEXT NOT NULL DEFAULT 'openid profile email',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS oauth_login_states (
+  state_hash TEXT PRIMARY KEY,
+  provider_id INTEGER NOT NULL,
+  verifier TEXT NOT NULL,
+  next TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS provider_links (
+  provider_id INTEGER NOT NULL,
+  subject TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (provider_id, subject),
+  UNIQUE (user_id, provider_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_passkeys_user ON passkeys(user_id);
 
 CREATE INDEX IF NOT EXISTS idx_tokens_client ON tokens(client_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
@@ -274,6 +335,11 @@ export function getDb(): DatabaseSync {
   const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
   if (!userColumns.some((column) => column.name === "role_id")) {
     db.exec("ALTER TABLE users ADD COLUMN role_id INTEGER");
+  }
+  const challengeColumns = db.prepare("PRAGMA table_info(login_challenges)")
+    .all() as Array<{ name: string }>;
+  if (!challengeColumns.some((column) => column.name === "method")) {
+    db.exec("ALTER TABLE login_challenges ADD COLUMN method TEXT NOT NULL DEFAULT 'stotp'");
   }
   ensureRoles(db);
   ensureAdmin(db);

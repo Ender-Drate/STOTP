@@ -4,6 +4,8 @@ import { BRAND } from "@/lib/config";
 import { safeNextPath } from "@/lib/http";
 import { currentUser } from "@/lib/session";
 import { LoginForm } from "@/app/components/AuthForms";
+import { PasskeyLoginButton } from "@/app/components/PasskeyLoginButton";
+import { listProviders } from "@/lib/login-providers";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,7 @@ export default async function LoginPage({
   const error = typeof params.error === "string" ? params.error : "";
   const user = await currentUser();
   if (user) redirect(next);
+  const providers = listProviders(true);
 
   return (
     <div className="auth-wrap">
@@ -31,6 +34,26 @@ export default async function LoginPage({
         <h1 className="auth-title">登录你的账号</h1>
         <p className="auth-sub">输入用户名和密码继续</p>
         <LoginForm next={next} initialError={error} />
+        <PasskeyLoginButton next={next} />
+        {providers.length ? (
+          <div className="login-providers">
+            <div className="login-divider"><span>或使用其他方式</span></div>
+            <div className="provider-list">
+              {providers.map((provider) => (
+                <a key={provider.id} className="provider-btn"
+                  href={`/api/oauth/start?provider=${encodeURIComponent(provider.key)}&next=${encodeURIComponent(next)}`}>
+                  <span className="provider-icon">
+                    {provider.icon_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={provider.icon_url} alt="" />
+                    ) : provider.name.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span>{provider.name}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="auth-foot">
           没有账号？{" "}
           <Link href={`/register?next=${encodeURIComponent(next)}`}>立即注册</Link>
