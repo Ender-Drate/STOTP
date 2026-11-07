@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PasswordInput } from "./PasswordInput";
+import { encryptPassword } from "@/lib/password-client";
 
 interface SetupData {
   secret: string;
@@ -65,10 +66,17 @@ export function TotpPanel({ enabled }: { enabled: boolean }) {
     setBusy(true);
     setMsg(null);
     try {
+      let encrypted;
+      try {
+        encrypted = await encryptPassword(password);
+      } catch {
+        setMsg({ ok: false, text: "当前环境无法加密密码，请使用 HTTPS 访问" });
+        return;
+      }
       const res = await fetch("/api/settings/totp/disable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ ...encrypted }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {

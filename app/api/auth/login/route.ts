@@ -18,6 +18,7 @@ import { publicUser } from "@/lib/users";
 import { getBinding } from "@/lib/stotp-store";
 import { createChallenge } from "@/lib/login-challenge";
 import { isIpBlocked } from "@/lib/ip-rules";
+import { decryptPasswordField } from "@/lib/password-crypto";
 import { verifyCaptcha } from "@/lib/captcha";
 import {
   captchaRequiredFor, clearLoginFailures, getRiskSettings, loginFailureKey,
@@ -29,6 +30,8 @@ export const runtime = "nodejs";
 interface Body {
   username?: string;
   password?: string;
+  password_enc?: string;
+  password_key?: string;
   remember?: boolean | string;
   next?: string;
   captchaTicket?: string;
@@ -57,7 +60,9 @@ export async function POST(req: NextRequest) {
     const body: Body = formMode ? await readForm(req) : await readJson<Body>(req);
     next = safeNextPath(body.next);
     const identifier = typeof body.username === "string" ? body.username.trim() : "";
-    const password = typeof body.password === "string" ? body.password : "";
+    const password = decryptPasswordField(
+      body.password, body.password_enc, body.password_key,
+    );
     if (!identifier || !password) {
       throw new HttpError(400, "invalid_request", "请输入用户名与密码");
     }

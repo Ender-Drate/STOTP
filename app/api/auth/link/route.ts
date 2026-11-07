@@ -12,6 +12,7 @@ import {
 import { createSession, sessionCookieOptions } from "@/lib/session";
 import { getBinding } from "@/lib/stotp-store";
 import { isIpBlocked } from "@/lib/ip-rules";
+import { decryptPasswordField } from "@/lib/password-crypto";
 import { publicUser } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -20,6 +21,8 @@ interface Body {
   ticket?: string;
   username?: string;
   password?: string;
+  password_enc?: string;
+  password_key?: string;
   next?: string;
 }
 
@@ -30,7 +33,9 @@ export async function POST(req: NextRequest) {
     const body = await readJson<Body>(req);
     const ticket = (body.ticket || "").trim();
     const identifier = (body.username || "").trim();
-    const password = body.password || "";
+    const password = decryptPasswordField(
+      body.password, body.password_enc, body.password_key,
+    );
     if (!ticket) throw new HttpError(400, "invalid_request", "绑定会话已过期");
     if (!rateLimit(`provider-link:${clientIp(req)}`, 10, 300)) {
       throw new HttpError(429, "rate_limited", "尝试过于频繁，请稍后再试");

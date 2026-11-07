@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PasswordInput } from "./PasswordInput";
+import { encryptPassword } from "@/lib/password-client";
 
 export function LinkAccountForm({ ticket, next }: { ticket: string; next: string }) {
   const [form, setForm] = useState({ username: "", password: "" });
@@ -13,10 +14,17 @@ export function LinkAccountForm({ ticket, next }: { ticket: string; next: string
     setError("");
     setBusy(true);
     try {
+      let encrypted;
+      try {
+        encrypted = await encryptPassword(form.password);
+      } catch {
+        setError("当前环境无法加密密码，请使用 HTTPS 访问");
+        return;
+      }
       const res = await fetch("/api/auth/link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticket, ...form, next }),
+        body: JSON.stringify({ ticket, username: form.username, next, ...encrypted }),
       });
       const data = await res.json().catch(() => null);
       if (data?.otp_required) {
