@@ -1,5 +1,5 @@
 /** 外部 OAuth2 登录服务端到端：首次登录必须绑定本地账户。 */
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { startMockOAuth } from "./mock-oauth.mjs";
 
 const BASE = process.env.AUTH_BASE_URL || "http://127.0.0.1:3100";
@@ -14,6 +14,33 @@ function ok(condition, label, extra = "") {
 function cookieOf(res) {
   return (res.headers.getSetCookie ? res.headers.getSetCookie() : [])
     .map((item) => item.split(";")[0]).join("; ");
+}
+
+const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+function base32Decode(text) {
+  let bits = 0;
+  let value = 0;
+  const out = [];
+  for (const char of text.toUpperCase().replace(/[^A-Z2-7]/g, "")) {
+    value = (value << 5) | BASE32.indexOf(char);
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(out);
+}
+
+function totp(secret) {
+  const counter = Math.floor(Date.now() / 1000 / 30);
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64BE(BigInt(counter));
+  const hmac = createHmac("sha1", base32Decode(secret)).update(buf).digest();
+  const pos = hmac[hmac.length - 1] & 0xf;
+  const binary = ((hmac[pos] & 0x7f) << 24)
+    | (hmac[pos + 1] << 16) | (hmac[pos + 2] << 8) | hmac[pos + 3];
+  return String(binary % 1000000).padStart(6, "0");
 }
 
 async function json(path, options = {}) {
@@ -116,6 +143,35 @@ ok(reused.callback.status === 303 && reused.cookie.includes("ac_session"),
   "bound provider account logs in directly");
 const me2 = await json("/api/auth/me", { headers: { Cookie: reused.cookie } });
 ok(me2.body?.user?.id === localId, "same local user on repeat login");
+
+const setup = await json("/api/settings/totp/setup", {
+  method: "POST", headers: { Cookie: linked.cookie },
+});
+const secret = setup.body?.secret;
+const enabled = await json("/api/settings/totp/enable", {
+  method: "POST", headers: { Cookie: linked.cookie },
+  body: JSON.stringify({ secret, code: totp(secret) }),
+});
+ok(enabled.res.status === 200, "enable TOTP on bound local account");
+
+const gated = await flow();
+ok(gated.callback.status === 303 && gated.location.includes("/login/otp")
+  && !gated.cookie.includes("ac_session"),
+  "provider login cannot bypass TOTP", gated.location);
+const gatedTicket = new URL(gated.location).searchParams.get("ticket") || "";
+const gatedWrong = await json("/api/auth/login/otp", {
+  method: "POST",
+  body: JSON.stringify({ ticket: gatedTicket, code: "000000", next: "/dashboard" }),
+});
+ok(gatedWrong.res.status === 401, "provider TOTP wrong code rejected");
+const gatedOtp = await json("/api/auth/login/otp", {
+  method: "POST",
+  body: JSON.stringify({ ticket: gatedTicket, code: totp(secret), next: "/dashboard" }),
+});
+ok(gatedOtp.res.status === 200 && gatedOtp.cookie.includes("ac_session"),
+  "provider TOTP creates session");
+const gatedMe = await json("/api/auth/me", { headers: { Cookie: gatedOtp.cookie } });
+ok(gatedMe.body?.user?.id === localId, "provider TOTP session is local account");
 
 const settingsPage = await fetch(BASE + "/dashboard/settings", {
   headers: { Cookie: linked.cookie },

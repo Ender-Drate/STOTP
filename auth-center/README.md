@@ -132,6 +132,9 @@ GitHub Token 端点默认返回 `application/x-www-form-urlencoded`，auth-cente
 
 设置页「第三方登录绑定」可查看并解绑已绑定的服务；解绑后该第三方账户需要重新绑定本地账户。
 
+第三方登录命中本地账号后，如果该账号启用了 TOTP（或旧 STOTP 绑定），仍必须进入第二步验证，
+不会直接建立会话。
+
 > 外部登录的 `client_secret` 保存在 `data/auth.db`，请确保数据库文件权限为 600 并做好备份。
 > 旧的 STOTP 绑定仍兼容，但新部署推荐 TOTP / Passkey；设置页已不再显示 STOTP 绑定入口。
 
