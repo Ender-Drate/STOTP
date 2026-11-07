@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<plugin version="php">
+  <id>STOTPOAuth</id>
+  <name>STOTP OAuth2 登录</name>
+  <url>https://auth.yxzhou.com/</url>
+  <note>使用 STOTP / auth-center 的 OAuth2 登录 Z-BlogPHP</note>
+  <description>登录页注入 OAuth2 登录按钮，支持授权码 + PKCE、自动注册、已验证邮箱绑定、登录设备安全。</description>
+  <path>main.php</path>
+  <include>include.php</include>
+  <level>1</level>
+  <author>
+    <name>STOTP</name>
+    <email></email>
+    <url>https://auth.yxzhou.com/</url>
+  </author>
+  <source>
+    <name></name>
+    <email></email>
+    <url></url>
+  </source>
+  <adapted>170000</adapted>
+  <version>1.0.0</version>
+  <pubdate>2026-11-07</pubdate>
+  <modified>2026-11-07</modified>
+  <price>0</price>
+  <phpver>7.4</phpver>
+  <advanced>
+    <dependency></dependency>
+    <rewritefunctions></rewritefunctions>
+    <existsfunctions></existsfunctions>
+    <conflict></conflict>
+  </advanced>
+  <sidebars>
+    <sidebar1></sidebar1>
+    <sidebar2></sidebar2>
+    <sidebar3></sidebar3>
+    <sidebar4></sidebar4>
+    <sidebar5></sidebar5>
+    <sidebar6></sidebar6>
+    <sidebar7></sidebar7>
+    <sidebar8></sidebar8>
+    <sidebar9></sidebar9>
+  </sidebars>
+</plugin>
