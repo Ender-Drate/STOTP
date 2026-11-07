@@ -4,7 +4,7 @@ import { currentUser } from "@/lib/session";
 import { hasPermission, isSuperAdmin } from "@/lib/permissions";
 import { getDb } from "@/lib/db";
 import { getRiskSettings, getRecentObservations, getVisitIps, ipRiskScores, RISK_LABELS, riskLevel, type RiskSettings } from "@/lib/risk";
-import { firstPublicIp } from "@/lib/ip";
+import { firstValidIp } from "@/lib/ip";
 import { formatDateTime } from "@/lib/datetime";
 import { listIpRules } from "@/lib/ip-rules";
 import { RiskSettingsForm } from "@/app/components/RiskSettingsForm";
@@ -54,11 +54,7 @@ export default async function RiskPage() {
   const xRealIp = requestHeaders.get("x-real-ip") || "-";
   const xForwardedFor = requestHeaders.get("x-forwarded-for") || "-";
   const cfConnectingIp = requestHeaders.get("cf-connecting-ip") || "-";
-  const detectedIp = firstPublicIp([
-    cfConnectingIp === "-" ? null : cfConnectingIp,
-    xRealIp === "-" ? null : xRealIp,
-    ...(xForwardedFor === "-" ? [] : xForwardedFor.split(",")),
-  ]);
+  const detectedIp = firstValidIp([xRealIp]) || "127.0.0.1";
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const failed = getDb().prepare(
     "SELECT COUNT(*) AS c FROM audit WHERE event = 'login_failed' AND ts >= ?"

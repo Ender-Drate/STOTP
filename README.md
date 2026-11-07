@@ -122,6 +122,7 @@ location / {
 完整示例见 [`docs/nginx-auth-center.conf`](docs/nginx-auth-center.conf)。
 
 应用只读取 nginx 覆盖后的 `X-Real-IP`；`CF-Connecting-IP`、`X-Forwarded-For`、`Forwarded` 都不参与身份判断。
+`X-Real-IP` 如果被多层代理追加成 `1.2.3.4, 1.2.3.4`，会取第一个合法 IP；nginx 仍应尽量覆盖成单个地址。
 修改 nginx 后执行 `nginx -t && systemctl reload nginx`；历史审计里的 `127.0.0.1` 不会自动回填，新登录开始记录真实 IP。
 
 ## 登录方式
@@ -221,8 +222,8 @@ TLS 指纹无法由浏览器 JS 计算。若前置 WAF/CDN 提供，会读取
 
 拥有 `risk.manage` 权限的管理员可以在风险页维护 IP 规则：
 
-- **观察**：只记录，不拦截；
-- **封禁**：拦截新的密码登录、OTP、Passkey、第三方登录和注册；
+- **观察**：只记录，不拦截；默认 **72 小时**后自动取消追踪；
+- **封禁**：拦截新的密码登录、OTP、Passkey、第三方登录和注册；默认长期，除非显式设置到期时间；
 - 已有会话不会被踢出，需要单独撤销会话；
 - 规则按规范化 IP 保存，支持 IPv4/IPv6。
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PUBLIC_URL, TRUST_PROXY } from "./config";
-import { normalizeIp } from "./ip";
+import { firstValidIp } from "./ip";
 
 export class HttpError extends Error {
   status: number;
@@ -90,8 +90,8 @@ export function safeNextPath(value: unknown, fallback = "/dashboard"): string {
  */
 export function clientIp(req: NextRequest): string {
   if (!TRUST_PROXY) return "127.0.0.1";
-  const real = normalizeIp(req.headers.get("x-real-ip"));
-  return real || "127.0.0.1";
+  // 只解析 nginx 覆盖后的 X-Real-IP；兼容多层代理重复追加的逗号列表。
+  return firstValidIp([req.headers.get("x-real-ip")]) || "127.0.0.1";
 }
 
 const buckets = new Map<string, { count: number; resetAt: number }>();

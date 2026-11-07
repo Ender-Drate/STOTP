@@ -29,3 +29,20 @@ export function firstPublicIp(values: Array<string | null | undefined>): string 
   const ips = values.map(normalizeIp).filter(Boolean);
   return ips.find((ip) => !isPrivateIp(ip)) || ips[0] || "127.0.0.1";
 }
+
+/**
+ * 从代理头中取第一个合法 IP。
+ *
+ * 兼容 `X-Real-IP: 112.9.40.76, 112.9.40.76` 这种被多层代理重复追加的值；
+ * 只应传入 nginx 覆盖后的 X-Real-IP，不要传客户端可控的 XFF。
+ */
+export function firstValidIp(values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    if (!value) continue;
+    for (const part of String(value).split(",")) {
+      const ip = normalizeIp(part);
+      if (ip) return ip;
+    }
+  }
+  return "";
+}
