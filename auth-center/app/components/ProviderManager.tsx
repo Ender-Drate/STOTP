@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CopyButton } from "./CopyButton";
+import { Modal, useToast } from "./Feedback";
 
 interface ProviderView {
   id: number;
@@ -44,9 +45,11 @@ export function ProviderManager({
   callbackUrl: string;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmProvider, setConfirmProvider] = useState<ProviderView | null>(null);
 
   function startCreate() {
     setMsg(null);
@@ -95,28 +98,36 @@ export function ProviderManager({
       );
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setMsg({ ok: false, text: data?.error?.message || "保存失败" });
+        const text = data?.error?.message || "保存失败";
+        setMsg({ ok: false, text });
+        toast.error("保存失败", text);
         return;
       }
       setDraft(null);
       setMsg({ ok: true, text: "登录服务已保存" });
+      toast.success("登录服务已保存");
       router.refresh();
     } finally {
       setBusy(false);
     }
   }
 
-  async function remove(provider: ProviderView) {
-    if (!confirm(`删除登录服务「${provider.name}」？`)) return;
+  async function remove() {
+    if (!confirmProvider) return;
+    const provider = confirmProvider;
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/logins/${provider.id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setMsg({ ok: false, text: data?.error?.message || "删除失败" });
+        const text = data?.error?.message || "删除失败";
+        setMsg({ ok: false, text });
+        toast.error("删除失败", text);
         return;
       }
       setMsg({ ok: true, text: "登录服务已删除" });
+      toast.success("登录服务已删除", provider.name);
+      setConfirmProvider(null);
       router.refresh();
     } finally {
       setBusy(false);
@@ -237,7 +248,7 @@ export function ProviderManager({
             </div>
             <div className="row" style={{ marginTop: 14, justifyContent: "flex-end" }}>
               <button className="btn btn-sm btn-ghost" onClick={() => startEdit(provider)}>编辑</button>
-              <button className="btn btn-sm btn-danger" onClick={() => remove(provider)}
+              <button className="btn btn-sm btn-danger" onClick={() => setConfirmProvider(provider)}
                 disabled={busy}>删除</button>
             </div>
           </div>
@@ -251,6 +262,23 @@ export function ProviderManager({
           </div>
         ) : null}
       </div>
+      <Modal
+        open={Boolean(confirmProvider)}
+        title="删除登录服务"
+        onClose={() => setConfirmProvider(null)}
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setConfirmProvider(null)}>
+              取消
+            </button>
+            <button type="button" className="btn btn-danger" onClick={remove} disabled={busy}>
+              {busy ? "删除中…" : "确认删除"}
+            </button>
+          </>
+        )}
+      >
+        删除「{confirmProvider?.name}」后，其绑定关系也会一并清理，确定继续？
+      </Modal>
     </>
   );
 }

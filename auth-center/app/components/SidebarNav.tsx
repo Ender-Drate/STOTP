@@ -36,7 +36,17 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
   },
   {
     label: "开发",
-    items: [{ href: "/docs", label: "接入文档", icon: "docs" }],
+    items: [
+      {
+        href: "/dashboard/stats", label: "统计信息", icon: "stats",
+        permission: "stats.view",
+      },
+      {
+        href: "/dashboard/risk", label: "风险控制", icon: "risk",
+        permission: "audit.view",
+      },
+      { href: "/docs", label: "接入文档", icon: "docs" },
+    ],
   },
 ];
 

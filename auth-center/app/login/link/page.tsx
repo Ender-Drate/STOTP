@@ -20,6 +20,7 @@ export default async function LinkAccountPage({
   const next = safeNextPath(params.next);
   const error = typeof params.error === "string" ? params.error : "";
   if (!ticket) redirect("/login");
+  const returnTo = `/login/link?ticket=${encodeURIComponent(ticket)}&next=${encodeURIComponent(next)}`;
 
   return (
     <div className="auth-wrap">
@@ -36,6 +37,9 @@ export default async function LinkAccountPage({
         {error ? <div className="auth-error">{error}</div> : null}
         <LinkAccountForm ticket={ticket} next={next} />
         <div className="auth-foot">
+          没有本地账户？{" "}
+          <Link href={`/register?next=${encodeURIComponent(returnTo)}`}>注册本地账户</Link>
+          {" · "}
           <Link href={`/login?next=${encodeURIComponent(next)}`}>返回登录</Link>
         </div>
       </div>

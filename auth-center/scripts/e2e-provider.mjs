@@ -203,6 +203,28 @@ const other = await flow();
 ok(other.callback.status === 303 && other.location.includes("/login/link")
   && !other.cookie.includes("ac_session"),
   "new provider identity still requires local binding");
+const otherTicket = new URL(other.location).searchParams.get("ticket") || "";
+const otherPage = await fetch(other.location, { headers: { Cookie: linked.cookie } });
+const otherHtml = await otherPage.text();
+ok(otherPage.status === 200 && otherHtml.includes("注册本地账户"),
+  "binding page offers local registration");
+const otherLink = await json("/api/auth/link", {
+  method: "POST",
+  body: JSON.stringify({
+    ticket: otherTicket, username: localUsername, password: localPassword,
+  }),
+});
+ok(otherLink.res.status === 200 && otherLink.body?.otp_required === true
+  && !otherLink.cookie.includes("ac_session"),
+  "binding a TOTP account moves to second step", otherLink.text.slice(0, 80));
+const otherOtp = await json("/api/auth/link/otp", {
+  method: "POST",
+  body: JSON.stringify({ ticket: otherTicket, code: totp(secret), next: "/dashboard" }),
+});
+ok(otherOtp.res.status === 200 && otherOtp.cookie.includes("ac_session"),
+  "binding TOTP completes and creates session");
+const otherMe = await json("/api/auth/me", { headers: { Cookie: otherOtp.cookie } });
+ok(otherMe.body?.user?.id === localId, "binding TOTP session maps to local account");
 
 const loginsPage = await fetch(BASE + "/dashboard/logins", {
   headers: { Cookie: adminCookie },

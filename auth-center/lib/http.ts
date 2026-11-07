@@ -4,17 +4,23 @@ import { PUBLIC_URL } from "./config";
 export class HttpError extends Error {
   status: number;
   code: string;
-  constructor(status: number, code: string, message: string) {
+  details?: Record<string, unknown>;
+  constructor(status: number, code: string, message: string, details?: Record<string, unknown>) {
     super(message);
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
 export function errorResponse(error: unknown): NextResponse {
   if (error instanceof HttpError) {
     return NextResponse.json(
-      { ok: false, error: { code: error.code, message: error.message } },
+      {
+        ok: false,
+        error: { code: error.code, message: error.message },
+        ...(error.details || {}),
+      },
       { status: error.status, headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -70,6 +76,7 @@ export function clientIp(req: NextRequest): string {
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
 export function rateLimit(key: string, max: number, windowSeconds: number): boolean {
+  if (process.env.AUTH_E2E === "1") return true;
   const now = Date.now();
   const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt < now) {

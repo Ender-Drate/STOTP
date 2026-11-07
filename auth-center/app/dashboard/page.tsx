@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
 import { getDb } from "@/lib/db";
@@ -81,7 +81,7 @@ export default async function OverviewPage() {
           </div>
         </div>
 
-        <div className="grid grid-2" style={{ display: "grid", gap: 16, gridTemplateColumns: "1.4fr 1fr" }}>
+        <div className="grid grid-2">
           <div className="card">
             <div className="card-head">
               <div className="card-title">账号信息</div>

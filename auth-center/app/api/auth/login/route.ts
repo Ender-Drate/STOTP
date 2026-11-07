@@ -17,6 +17,11 @@ import { createSession, sessionCookieOptions } from "@/lib/session";
 import { publicUser } from "@/lib/users";
 import { getBinding } from "@/lib/stotp-store";
 import { createChallenge } from "@/lib/login-challenge";
+import { verifyCaptcha } from "@/lib/captcha";
+import {
+  captchaRequiredFor, clearLoginFailures, getRiskSettings, loginFailureKey,
+  recordLoginFailure,
+} from "@/lib/risk";
 
 export const runtime = "nodejs";
 
@@ -25,6 +30,8 @@ interface Body {
   password?: string;
   remember?: boolean | string;
   next?: string;
+  captchaTicket?: string;
+  captchaCode?: string;
 }
 
 function loginRedirect(next: string, error?: string): NextResponse {
@@ -56,14 +63,37 @@ export async function POST(req: NextRequest) {
     if (!rateLimit(`login:${clientIp(req)}:${identifier}`, 10, 300)) {
       throw new HttpError(429, "rate_limited", "尝试过于频繁，请 5 分钟后再试");
     }
-    const user = findUserByUsername(identifier);
+    const ip = clientIp(req);
+    const candidate = findUserByUsername(identifier);
+    // 同一个账号无论用用户名还是邮箱登录，共用失败计数
+    const failureKey = loginFailureKey(ip, candidate ? `user:${candidate.id}` : `id:${identifier.toLowerCase()}`);
+    if (captchaRequiredFor(failureKey)) {
+      const captchaTicket = typeof body.captchaTicket === "string" ? body.captchaTicket : "";
+      const captchaCode = typeof body.captchaCode === "string" ? body.captchaCode : "";
+      if (!captchaTicket || !captchaCode) {
+        throw new HttpError(400, "captcha_required", "请输入图形验证码", {
+          captcha_required: true,
+        });
+      }
+      if (!verifyCaptcha(captchaTicket, captchaCode, ip)) {
+        throw new HttpError(400, "captcha_invalid", "图形验证码不正确", {
+          captcha_required: true,
+        });
+      }
+    }
+    const user = candidate;
     if (!user || !verifyPassword(password, user.password_hash)) {
-      audit("login_failed", { ip: clientIp(req), detail: identifier.slice(0, 40) });
-      throw new HttpError(401, "invalid_credentials", "用户名或密码不正确");
+      const count = recordLoginFailure(failureKey);
+      audit("login_failed", { ip, detail: identifier.slice(0, 40) });
+      const settings = getRiskSettings();
+      throw new HttpError(401, "invalid_credentials", "用户名或密码不正确", {
+        captcha_required: count >= settings.captchaAfterFailures,
+      });
     }
     if (user.status !== "active") {
       throw new HttpError(403, "account_disabled", "账号已被禁用");
     }
+    clearLoginFailures(failureKey);
     const remember = body.remember === true || body.remember === "1" || body.remember === "on";
     const ttl = remember ? 30 * 24 * 3600 : SESSION_TTL_SECONDS;
     const binding = getBinding(user.id);

@@ -228,6 +228,7 @@ export interface LinkTicket {
   email: string | null;
   next: string;
   ip: string;
+  user_id: number | null;
   expires_at: number;
   used: number;
   created_at: number;
@@ -245,6 +246,11 @@ export function getLinkTicket(ticket: string, ip: string): LinkTicket | undefine
 export function markLinkTicketUsed(ticket: string): void {
   getDb().prepare("UPDATE provider_link_tickets SET used = 1 WHERE token_hash = ?")
     .run(sha256(ticket));
+}
+
+export function setLinkTicketUser(ticket: string, userId: number): void {
+  getDb().prepare("UPDATE provider_link_tickets SET user_id = ? WHERE token_hash = ?")
+    .run(userId, sha256(ticket));
 }
 
 export const OAUTH_STATE_COOKIE = "ac_oauth_state";
