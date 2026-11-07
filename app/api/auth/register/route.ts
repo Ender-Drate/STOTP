@@ -47,10 +47,11 @@ function registerRedirect(next: string, error?: string): NextResponse {
   return NextResponse.redirect(url, 303);
 }
 
-function pendingRedirect(next: string, mail: string): NextResponse {
+function pendingRedirect(next: string, mail: string, failed = false): NextResponse {
   const url = new URL("/register/pending", PUBLIC_URL);
   url.searchParams.set("email", mail);
   url.searchParams.set("next", next);
+  if (failed) url.searchParams.set("mail", "failed");
   return NextResponse.redirect(url, 303);
 }
 
@@ -113,21 +114,27 @@ export async function POST(req: NextRequest) {
 
     if (REQUIRE_EMAIL_VERIFICATION) {
       const token = issueEmailVerification(userId);
+      let mailSent = true;
       try {
         await sendVerificationEmail(mail, token);
       } catch (error) {
+        mailSent = false;
         console.error("[auth-center] verification email failed", error);
         audit("user_register", { userId, ip, detail: "mail_failed" });
-        throw new HttpError(503, "mail_failed", "验证邮件发送失败，请稍后重试或联系管理员");
       }
-      audit("user_register", { userId, ip, detail: "pending_email" });
-      if (formMode) return pendingRedirect(next, mail);
+      if (mailSent) {
+        audit("user_register", { userId, ip, detail: "pending_email" });
+      }
+      if (formMode) return pendingRedirect(next, mail, !mailSent);
       return NextResponse.json(
         {
           ok: true,
           pending: true,
           email: mail,
-          message: "验证邮件已发送，请打开邮件完成验证后登录",
+          mailSent,
+          message: mailSent
+            ? "验证邮件已发送，请打开邮件完成验证后登录"
+            : "账号已创建，但验证邮件发送失败，请在等待页重发",
         },
         { status: 202, headers: { "Cache-Control": "no-store" } }
       );

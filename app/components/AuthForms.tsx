@@ -9,9 +9,10 @@ function errorOf(payload: unknown, fallback: string): string {
   return data?.error?.message || fallback;
 }
 
-export function LoginForm({ next, initialError = "" }: {
+export function LoginForm({ next, initialError = "", verified = false }: {
   next: string;
   initialError?: string;
+  verified?: boolean;
 }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -82,6 +83,7 @@ export function LoginForm({ next, initialError = "" }: {
   return (
     <form method="post" action="/api/auth/login" onSubmit={submit}>
       <input type="hidden" name="next" value={next} />
+      {verified ? <div className="notice notice-ok">邮箱已验证，请登录。</div> : null}
       {error ? <div className="auth-error">{error}</div> : null}
       <div className="field">
         <label className="label" htmlFor="identifier">用户名或邮箱</label>
@@ -255,6 +257,7 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
       }
       if (data?.pending) {
         const query = new URLSearchParams({ email: form.email, next });
+        if (data.mailSent === false) query.set("mail", "failed");
         window.location.assign(`/register/pending?${query.toString()}`);
         return;
       }
