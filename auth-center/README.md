@@ -117,6 +117,19 @@ location / {
 需要使用本地用户名/密码（启用 TOTP 时还需动态码）确认一次；绑定后再次登录直接复用本地账号。
 不再按邮箱自动创建或接管账号。
 
+### GitHub OAuth 配置示例
+
+| 字段 | 值 |
+| --- | --- |
+| Authorization URL | `https://github.com/login/oauth/authorize` |
+| Token URL | `https://github.com/login/oauth/access_token` |
+| UserInfo URL | `https://api.github.com/user` |
+| Scope | `read:user`（需要邮箱时用 `read:user user:email`） |
+| Callback | `https://auth.yxzhou.com/api/oauth/callback` |
+
+GitHub OAuth App 的 Authorization callback URL 必须与上面的 Callback 完全一致。
+GitHub Token 端点默认返回 `application/x-www-form-urlencoded`，auth-center 已同时兼容 JSON 与表单响应。
+
 设置页「第三方登录绑定」可查看并解绑已绑定的服务；解绑后该第三方账户需要重新绑定本地账户。
 
 > 外部登录的 `client_secret` 保存在 `data/auth.db`，请确保数据库文件权限为 600 并做好备份。

@@ -23,8 +23,59 @@ interface ProviderUser {
   email?: string;
   email_verified?: boolean | string | number;
   name?: string;
+  login?: string;
   preferred_username?: string;
   picture?: string;
+}
+
+interface TokenData {
+  access_token?: string;
+  error?: string;
+  error_description?: string;
+}
+
+async function readTokenResponse(res: Response): Promise<TokenData> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as TokenData;
+  } catch {
+    // GitHub 等默认返回 application/x-www-form-urlencoded
+    return Object.fromEntries(new URLSearchParams(text)) as TokenData;
+  }
+}
+
+async function exchangeCode(
+  provider: NonNullable<ReturnType<typeof getProvider>>,
+  code: string,
+  verifier: string,
+  useBasicAuth: boolean,
+): Promise<{ ok: boolean; status: number; data: TokenData }> {
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: `${PUBLIC_URL}/api/oauth/callback`,
+    client_id: provider.client_id,
+    code_verifier: verifier,
+  });
+  const headers: Record<string, string> = {
+    "Content-Type": "application/x-www-form-urlencoded",
+    Accept: "application/json",
+    "User-Agent": "STOTP-Auth-Center",
+  };
+  if (useBasicAuth) {
+    headers.Authorization = `Basic ${Buffer.from(
+      `${provider.client_id}:${provider.client_secret}`
+    ).toString("base64")}`;
+  } else {
+    body.set("client_secret", provider.client_secret);
+  }
+  const res = await fetch(provider.token_url, {
+    method: "POST",
+    headers,
+    body,
+    signal: AbortSignal.timeout(10_000),
+  });
+  return { ok: res.ok, status: res.status, data: await readTokenResponse(res) };
 }
 
 export async function GET(req: NextRequest) {
@@ -41,40 +92,33 @@ export async function GET(req: NextRequest) {
   if (!provider || !provider.enabled) return fail("登录服务已停用");
   if (!code) return fail("登录服务未返回 code");
 
-  let tokenResponse: Response;
+  let tokenResult: { ok: boolean; status: number; data: TokenData };
   try {
-    tokenResponse = await fetch(provider.token_url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(
-          `${provider.client_id}:${provider.client_secret}`
-        ).toString("base64")}`,
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: `${PUBLIC_URL}/api/oauth/callback`,
-        client_id: provider.client_id,
-        client_secret: provider.client_secret,
-        code_verifier: row.verifier,
-      }),
-      signal: AbortSignal.timeout(10_000),
-    });
+    tokenResult = await exchangeCode(provider, code, row.verifier, false);
+    const clientError = tokenResult.data.error === "invalid_client"
+      || tokenResult.data.error === "incorrect_client_credentials";
+    if ((!tokenResult.ok || clientError) && (tokenResult.status === 401 || clientError)) {
+      tokenResult = await exchangeCode(provider, code, row.verifier, true);
+    }
   } catch {
     return fail("无法连接登录服务", row.next);
   }
-  const tokenData = await tokenResponse.json().catch(() => null) as {
-    access_token?: string; error_description?: string;
-  } | null;
-  if (!tokenResponse.ok || !tokenData?.access_token) {
-    return fail(tokenData?.error_description || "登录服务令牌交换失败", row.next);
+  if (!tokenResult.ok || !tokenResult.data.access_token) {
+    return fail(
+      tokenResult.data.error_description || tokenResult.data.error || "登录服务令牌交换失败",
+      row.next
+    );
   }
+  const accessToken = tokenResult.data.access_token;
 
   let profile: ProviderUser;
   try {
     const userinfoResponse = await fetch(provider.userinfo_url, {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+        "User-Agent": "STOTP-Auth-Center",
+      },
       signal: AbortSignal.timeout(10_000),
     });
     if (!userinfoResponse.ok) return fail("登录服务未返回用户信息", row.next);
@@ -91,7 +135,7 @@ export async function GET(req: NextRequest) {
     const ticket = createLinkTicket({
       providerId: provider.id,
       subject,
-      displayName: profile.name || profile.preferred_username || "",
+      displayName: profile.name || profile.preferred_username || profile.login || "",
       email: profile.email || "",
       next: row.next,
       ip: clientIp(req),

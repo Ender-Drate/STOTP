@@ -29,10 +29,10 @@ export function startMockOAuth(profile = {
         res.end(JSON.stringify({ error: "invalid_grant" }));
         return;
       }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        access_token: token, token_type: "Bearer", expires_in: 3600,
-      }));
+      res.writeHead(200, { "Content-Type": "application/x-www-form-urlencoded" });
+      res.end(new URLSearchParams({
+        access_token: token, token_type: "Bearer", expires_in: "3600",
+      }).toString());
       return;
     }
     if (url.pathname === "/userinfo") {
