@@ -3,7 +3,9 @@ import { currentUser } from "@/lib/session";
 import { ProfileForms } from "@/app/components/ProfileForms";
 import { TotpPanel } from "@/app/components/TotpPanel";
 import { PasskeyPanel } from "@/app/components/PasskeyPanel";
+import { ProviderLinksPanel } from "@/app/components/ProviderLinksPanel";
 import { listPasskeys } from "@/lib/passkeys";
+import { listUserProviderLinks } from "@/lib/login-providers";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,13 @@ export default async function SettingsPage() {
           createdAt: user.created_at,
         }}
       />
+      <ProviderLinksPanel links={listUserProviderLinks(user.id).map((item) => ({
+        providerId: item.providerId,
+        name: item.name,
+        iconUrl: item.iconUrl,
+        subject: item.subject,
+        createdAt: item.createdAt,
+      }))} />
       <TotpPanel enabled={Boolean(user.totp_secret)} />
       <PasskeyPanel passkeys={listPasskeys(user.id).map((item) => ({
         id: item.id,

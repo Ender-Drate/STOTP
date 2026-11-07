@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BRAND } from "@/lib/config";
 import { safeNextPath } from "@/lib/http";
-import { currentUser } from "@/lib/session";
 import { LinkAccountForm } from "@/app/components/LinkAccountForm";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +19,6 @@ export default async function LinkAccountPage({
   const ticket = typeof params.ticket === "string" ? params.ticket : "";
   const next = safeNextPath(params.next);
   const error = typeof params.error === "string" ? params.error : "";
-  const user = await currentUser();
-  if (user) redirect(next);
   if (!ticket) redirect("/login");
 
   return (

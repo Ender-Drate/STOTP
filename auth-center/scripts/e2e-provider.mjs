@@ -117,6 +117,26 @@ ok(reused.callback.status === 303 && reused.cookie.includes("ac_session"),
 const me2 = await json("/api/auth/me", { headers: { Cookie: reused.cookie } });
 ok(me2.body?.user?.id === localId, "same local user on repeat login");
 
+const settingsPage = await fetch(BASE + "/dashboard/settings", {
+  headers: { Cookie: linked.cookie },
+});
+const settingsHtml = await settingsPage.text();
+ok(settingsHtml.includes("第三方登录绑定") && settingsHtml.includes(provider.name),
+  "settings lists provider link");
+const unlinked = await json(`/api/settings/links/${provider.id}`, {
+  method: "DELETE", headers: { Cookie: linked.cookie },
+});
+ok(unlinked.res.status === 200, "unlink provider account");
+const linkPage = await fetch(BASE + "/login/link?ticket=test&next=%2Fdashboard", {
+  headers: { Cookie: linked.cookie },
+});
+const linkPageHtml = await linkPage.text();
+ok(linkPage.status === 200 && linkPageHtml.includes("绑定本地账户"),
+  "existing session does not bypass binding page");
+const afterUnlink = await flow();
+ok(afterUnlink.callback.status === 303 && afterUnlink.location.includes("/login/link")
+  && !afterUnlink.cookie.includes("ac_session"), "unlinked identity requires binding again");
+
 mock.setProfile({
   sub: `friend-other-${suffix}`,
   email: `other-${suffix}@example.com`,

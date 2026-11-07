@@ -142,7 +142,38 @@ export function updateProvider(id: number, input: {
 }
 
 export function deleteProvider(id: number): boolean {
+  getDb().prepare("DELETE FROM provider_links WHERE provider_id = ?").run(id);
+  getDb().prepare("DELETE FROM provider_link_tickets WHERE provider_id = ?").run(id);
   const result = getDb().prepare("DELETE FROM login_providers WHERE id = ?").run(id);
+  return Number(result.changes) > 0;
+}
+
+export function listUserProviderLinks(userId: number): Array<{
+  providerId: number;
+  name: string;
+  key: string;
+  iconUrl: string | null;
+  subject: string;
+  createdAt: string;
+}> {
+  return getDb().prepare(
+    `SELECT provider_links.provider_id AS providerId, login_providers.name AS name,
+       login_providers.key AS key, login_providers.icon_url AS iconUrl,
+       provider_links.subject AS subject, provider_links.created_at AS createdAt
+     FROM provider_links
+     JOIN login_providers ON login_providers.id = provider_links.provider_id
+     WHERE provider_links.user_id = ?
+     ORDER BY provider_links.created_at DESC`
+  ).all(userId) as unknown as Array<{
+    providerId: number; name: string; key: string;
+    iconUrl: string | null; subject: string; createdAt: string;
+  }>;
+}
+
+export function removeProviderLink(userId: number, providerId: number): boolean {
+  const result = getDb().prepare(
+    "DELETE FROM provider_links WHERE user_id = ? AND provider_id = ?"
+  ).run(userId, providerId);
   return Number(result.changes) > 0;
 }
 
