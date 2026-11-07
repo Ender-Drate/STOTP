@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
+import { formatDateTime } from "@/lib/datetime";
 import { getDb } from "@/lib/db";
 import { parseScopes } from "@/lib/oidc";
 import { hasPermission, isSuperAdmin, permissionsOf, roleNameOf } from "@/lib/permissions";
@@ -97,7 +98,7 @@ export default async function OverviewPage() {
                   <td className="muted">权限</td>
                   <td><div className="pills">{permissions.map((p) => <span className="pill" key={p}>{p}</span>)}</div></td>
                 </tr>
-                <tr><td className="muted">注册时间</td><td>{new Date(user.created_at).toLocaleString("zh-CN")}</td></tr>
+                <tr><td className="muted">注册时间</td><td>{formatDateTime(user.created_at)}</td></tr>
               </tbody>
             </table>
           </div>
@@ -120,7 +121,7 @@ export default async function OverviewPage() {
                         client_update: "更新应用", client_delete: "删除应用",
                         client_secret_rotate: "轮换密钥",
                       }[item.event] || item.event}</span>
-                      <span className="muted small">{new Date(item.ts).toLocaleString("zh-CN")}</span>
+                      <span className="muted small">{formatDateTime(item.ts)}</span>
                     </li>
                   ))}
                 </ul>

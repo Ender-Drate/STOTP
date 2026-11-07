@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getDb, type User } from "@/lib/db";
 import { currentUser } from "@/lib/session";
+import { formatDateTime } from "@/lib/datetime";
 import { hasPermission, isSuperAdmin } from "@/lib/permissions";
 import { listRoles } from "@/lib/roles";
 import { UserActions } from "@/app/components/UserActions";
@@ -76,7 +77,7 @@ export default async function UsersPage() {
                       {user.status === "active" ? "正常" : "已禁用"}
                     </span>
                   </td>
-                  <td className="muted small">{new Date(user.created_at).toLocaleString("zh-CN")}</td>
+                  <td className="muted small">{formatDateTime(user.created_at)}</td>
                   <td>
                     <UserActions
                       userId={user.id}

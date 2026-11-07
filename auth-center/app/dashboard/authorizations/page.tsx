@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { currentUser } from "@/lib/session";
+import { formatDateTime } from "@/lib/datetime";
 import { parseScopes } from "@/lib/oidc";
 import { RevokeConsentButton } from "@/app/components/RevokeConsentButton";
 
@@ -58,7 +59,7 @@ export default async function AuthorizationsPage() {
                       ))}
                     </div>
                   </td>
-                  <td className="muted small">{new Date(row.created_at).toLocaleString("zh-CN")}</td>
+                  <td className="muted small">{formatDateTime(row.created_at)}</td>
                   <td><RevokeConsentButton clientId={row.client_id} /></td>
                 </tr>
               ))}
