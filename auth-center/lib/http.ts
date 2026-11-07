@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PUBLIC_URL } from "./config";
+import { PUBLIC_URL, TRUST_PROXY } from "./config";
+import { firstPublicIp } from "./ip";
 
 export class HttpError extends Error {
   status: number;
@@ -68,9 +69,18 @@ export function safeNextPath(value: unknown, fallback = "/dashboard"): string {
 }
 
 export function clientIp(req: NextRequest): string {
+  if (!TRUST_PROXY) return "127.0.0.1";
   const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return req.headers.get("x-real-ip") || "127.0.0.1";
+  const forwardedEntries = forwarded ? forwarded.split(",") : [];
+  const forwardedHeader = req.headers.get("forwarded") || "";
+  const forwardedFor = Array.from(forwardedHeader.matchAll(/for=([^;]+)/gi))
+    .map((match) => match[1]);
+  return firstPublicIp([
+    req.headers.get("cf-connecting-ip"),
+    req.headers.get("x-real-ip"),
+    ...forwardedEntries,
+    ...forwardedFor,
+  ]);
 }
 
 const buckets = new Map<string, { count: number; resetAt: number }>();

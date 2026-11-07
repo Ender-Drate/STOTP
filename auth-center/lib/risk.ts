@@ -1,5 +1,6 @@
 import { getDb, nowIso, nowSec } from "./db";
 import { sha256 } from "./crypto";
+import { isPrivateIp as isPrivateIpImpl } from "./ip";
 
 export interface RiskSettings {
   captchaAfterFailures: number;
@@ -120,12 +121,7 @@ export function captchaRequiredFor(key: string): boolean {
 }
 
 export function isPrivateIp(ip: string): boolean {
-  if (!ip) return true;
-  if (ip === "::1" || ip.startsWith("127.")) return true;
-  if (ip.startsWith("10.") || ip.startsWith("192.168.")) return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)) return true;
-  if (ip.startsWith("fc") || ip.startsWith("fd") || ip.startsWith("fe80:")) return true;
-  return false;
+  return isPrivateIpImpl(ip);
 }
 
 export interface IpRisk {
