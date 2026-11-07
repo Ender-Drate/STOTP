@@ -17,7 +17,7 @@ export interface RoleRecord {
   created_at: string;
 }
 
-export type UserStatus = "active" | "disabled";
+export type UserStatus = "active" | "disabled" | "pending";
 
 export interface User {
   id: number;
@@ -202,6 +202,14 @@ CREATE TABLE IF NOT EXISTS webauthn_challenges (
   created_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS login_providers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   key TEXT NOT NULL UNIQUE,
@@ -281,6 +289,12 @@ CREATE TABLE IF NOT EXISTS captcha_challenges (
 );
 
 CREATE TABLE IF NOT EXISTS risk_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL

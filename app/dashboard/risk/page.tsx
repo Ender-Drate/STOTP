@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/datetime";
 import { listIpRules } from "@/lib/ip-rules";
 import { RiskSettingsForm } from "@/app/components/RiskSettingsForm";
 import { IpRulesPanel } from "@/app/components/IpRulesPanel";
+import { IpDetailsButton } from "@/app/components/IpDetailsButton";
 
 export const dynamic = "force-dynamic";
 
@@ -164,6 +165,7 @@ export default async function RiskPage() {
                 <th>最近</th>
                 <th>风险</th>
                 <th>环境信号</th>
+                <th>详情</th>
               </tr>
             </thead>
             <tbody>
@@ -181,10 +183,11 @@ export default async function RiskPage() {
                       <span title={item.tlsFingerprint}> · TLS {item.tlsFingerprint.slice(0, 18)}</span>
                     ) : ""}
                   </td>
+                  <td><IpDetailsButton ip={item.ip} /></td>
                 </tr>
               ))}
               {visits.length === 0 ? (
-                <tr><td colSpan={7} className="muted">暂无访问记录</td></tr>
+                <tr><td colSpan={8} className="muted">暂无访问记录</td></tr>
               ) : null}
             </tbody>
           </table>

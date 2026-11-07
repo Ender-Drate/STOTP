@@ -90,6 +90,16 @@ real_ip_recursive on;
 | `AUTH_ADMIN_PASSWORD` | 见上 | 管理员初始密码 |
 | `AUTH_TRUST_PROXY` | `1` | 只信任反向代理覆盖后的 `X-Real-IP`；应用直接暴露公网时设为 `0` |
 | `AUTH_REQUIRE_ENCRYPTED_PASSWORD` | 生产 HTTPS 默认 `1` | 设为 `0` 可显式允许明文密码 API；浏览器始终使用 RSA 信封加密 |
+| `AUTH_REQUIRE_EMAIL_VERIFICATION` | `1` | 注册后必须验证邮箱；`0` 仅用于本地/受控环境 |
+| `AUTH_SMTP_HOST` | `smtp.qiye.aliyun.com` | SMTP 主机（后台配置优先） |
+| `AUTH_SMTP_PORT` | `465` | SMTP 端口 |
+| `AUTH_SMTP_SECURE` | `1` | SSL/TLS |
+| `AUTH_SMTP_USER` | `noreply@yxzhou.com` | SMTP 用户名 |
+| `AUTH_SMTP_PASS` | 空 | SMTP 密码；推荐在后台「邮件服务」配置，不要写进仓库 |
+| `AUTH_MAIL_FROM` | `STOTP <noreply@yxzhou.com>` | 发件人 |
+| `AUTH_CONFIG_SECRET` | 自动生成 | 后台敏感配置加密密钥；多实例必须共享 |
+| `AUTH_ALLOW_NO_ORIGIN` | `0` | 仅机器对机器脚本需要时设为 `1`；浏览器写请求必须有 Origin |
+| `AUTH_E2E` | `0` | 仅本地 e2e；生产 HTTPS 下设置会拒绝启动 |
 | `AUTH_DISPLAY_TZ` | `Asia/Hong_Kong` | 服务端页面显示时间使用的 IANA 时区；数据库仍保存 UTC |
 | `PORT` | `3100` | `npm run dev/start` 已固定 3100，可自行改脚本 |
 
@@ -99,6 +109,8 @@ real_ip_recursive on;
 - `data/oidc-keys.json`：RSA 私钥（0600），用于 RS256 签名；**不要提交或泄露**。
 - `data/password-key.json`：RSA 密码信封私钥（0600）。
 - `data/avatar-secret`：头像签名密钥（0600）。
+- `data/config-secret`：SMTP 等后台敏感配置的加密密钥（0600）。
+- `data/auth.db` 的 `app_settings` 保存后台 SMTP 配置；密码使用 AES-256-GCM 加密。
 
 ### 反向代理真实 IP
 
@@ -126,6 +138,19 @@ location / {
 修改 nginx 后执行 `nginx -t && systemctl reload nginx`；历史审计里的 `127.0.0.1` 不会自动回填，新登录开始记录真实 IP。
 
 ## 登录方式
+
+### 注册与邮箱验证
+
+1. 注册页必须填写图形验证码；
+2. 账号创建为 `pending`，不签发会话；
+3. 服务端发送验证链接（24 小时、一次性）；
+4. 打开链接后 `status=active`、`email_verified=1`，才能登录；
+5. 未收到可在注册等待页重发。
+
+SMTP 可在后台「邮件服务」配置（仅最高管理员），密码加密存 `app_settings`，不会回显；
+也可以通过 `AUTH_SMTP_*` 环境变量作为初始/兜底配置。
+
+`AUTH_REQUIRE_EMAIL_VERIFICATION=0` 可关闭邮箱验证，仅建议本地开发使用。
 
 ### TOTP 两步验证
 

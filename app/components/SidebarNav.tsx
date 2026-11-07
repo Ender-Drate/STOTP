@@ -31,6 +31,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
         permission: "users.view",
       },
       { href: "/dashboard/roles", label: "权限", icon: "shield", superOnly: true },
+      { href: "/dashboard/smtp", label: "邮件服务", icon: "settings", superOnly: true },
       { href: "/dashboard/settings", label: "设置", icon: "settings" },
     ],
   },

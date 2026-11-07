@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PasswordInput } from "./PasswordInput";
 import { encryptPassword } from "@/lib/password-client";
 
@@ -110,7 +110,7 @@ export function LoginForm({ next, initialError = "" }: {
           <label className="label" htmlFor="captcha-code">图形验证码</label>
           <input
             id="captcha-code" className="input mono" value={captchaCode}
-            onChange={(e) => setCaptchaCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 4))}
+            onChange={(e) => setCaptchaCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5))}
             autoComplete="off" placeholder="输入图中字符" required
           />
         </div>
@@ -194,6 +194,25 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
   });
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
+  const [captcha, setCaptcha] = useState<{ ticket: string; image: string } | null>(null);
+  const [captchaCode, setCaptchaCode] = useState("");
+
+  async function refreshCaptcha() {
+    try {
+      const res = await fetch("/api/auth/captcha", { cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      if (data?.ticket && data?.image) {
+        setCaptcha({ ticket: data.ticket, image: data.image });
+        setCaptchaCode("");
+      }
+    } catch {
+      // 验证码加载失败时保留页面
+    }
+  }
+
+  useEffect(() => {
+    void refreshCaptcha();
+  }, []);
 
   function update(key: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -223,12 +242,20 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
           email: form.email,
           displayName: form.displayName,
           next,
+          captchaTicket: captcha?.ticket || "",
+          captchaCode,
           ...encrypted,
         }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
+        if (data?.captcha_required) await refreshCaptcha();
         setError(errorOf(data, "注册失败"));
+        return;
+      }
+      if (data?.pending) {
+        const query = new URLSearchParams({ email: form.email, next });
+        window.location.assign(`/register/pending?${query.toString()}`);
         return;
       }
       window.location.assign(next || "/dashboard");
@@ -277,6 +304,23 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
           placeholder="再次输入密码" required
         />
       </div>
+      {captcha ? (
+        <div className="captcha-box">
+          <div className="spread" style={{ marginBottom: 6 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={captcha.image} alt="图形验证码" width={160} height={52} />
+            <button type="button" className="btn btn-sm btn-ghost" onClick={refreshCaptcha}>
+              换一张
+            </button>
+          </div>
+          <label className="label" htmlFor="register-captcha">图形验证码</label>
+          <input
+            id="register-captcha" className="input mono" value={captchaCode}
+            onChange={(e) => setCaptchaCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5))}
+            autoComplete="off" placeholder="输入图中字符" required
+          />
+        </div>
+      ) : null}
       <button type="submit" className="btn btn-primary"
         style={{ width: "100%", height: 42, marginTop: 10 }} disabled={busy}>
         {busy ? "创建中…" : "创建账号"}

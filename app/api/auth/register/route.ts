@@ -19,6 +19,9 @@ import { decryptPasswordField } from "@/lib/password-crypto";
 import { publicUser } from "@/lib/users";
 import { getRoleByKey } from "@/lib/roles";
 import { email, username } from "@/lib/validators";
+import { verifyCaptcha } from "@/lib/captcha";
+import { issueEmailVerification } from "@/lib/email-verification";
+import { mailConfigured, sendVerificationEmail } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 
@@ -30,12 +33,24 @@ interface Body {
   password_key?: string;
   displayName?: string;
   next?: string;
+  captchaTicket?: string;
+  captchaCode?: string;
 }
+
+const E2E = process.env.AUTH_E2E === "1";
+const REQUIRE_EMAIL_VERIFICATION = process.env.AUTH_REQUIRE_EMAIL_VERIFICATION !== "0" && !E2E;
 
 function registerRedirect(next: string, error?: string): NextResponse {
   const url = new URL("/register", PUBLIC_URL);
   url.searchParams.set("next", next);
   if (error) url.searchParams.set("error", error);
+  return NextResponse.redirect(url, 303);
+}
+
+function pendingRedirect(next: string, mail: string): NextResponse {
+  const url = new URL("/register/pending", PUBLIC_URL);
+  url.searchParams.set("email", mail);
+  url.searchParams.set("next", next);
   return NextResponse.redirect(url, 303);
 }
 
@@ -46,11 +61,26 @@ export async function POST(req: NextRequest) {
     assertSameOrigin(req);
     const body: Body = formMode ? await readForm(req) : await readJson<Body>(req);
     next = safeNextPath(body.next);
-    if (!rateLimit(`register:${clientIp(req)}`, 10, 3600)) {
+    const ip = clientIp(req);
+    if (!rateLimit(`register:${ip}`, 10, 3600)) {
       throw new HttpError(429, "rate_limited", "注册过于频繁，请稍后再试");
     }
-    if (isIpBlocked(clientIp(req))) {
+    if (isIpBlocked(ip)) {
       throw new HttpError(403, "ip_blocked", "当前 IP 已被限制");
+    }
+    if (!E2E) {
+      const captchaTicket = typeof body.captchaTicket === "string" ? body.captchaTicket : "";
+      const captchaCode = typeof body.captchaCode === "string" ? body.captchaCode : "";
+      if (!captchaTicket || !captchaCode) {
+        throw new HttpError(400, "captcha_required", "请输入图形验证码", {
+          captcha_required: true,
+        });
+      }
+      if (!verifyCaptcha(captchaTicket, captchaCode, ip)) {
+        throw new HttpError(400, "captcha_invalid", "图形验证码不正确", {
+          captcha_required: true,
+        });
+      }
     }
     const name = username(body.username);
     const mail = email(body.email);
@@ -59,6 +89,9 @@ export async function POST(req: NextRequest) {
     );
     if (pass.length < 10) throw new HttpError(400, "invalid_request", "密码至少 10 位");
     if (pass.length > 128) throw new HttpError(400, "invalid_request", "密码过长");
+    if (REQUIRE_EMAIL_VERIFICATION && !mailConfigured()) {
+      throw new HttpError(503, "mail_unavailable", "邮件服务未配置，暂时无法开放注册");
+    }
     const passwordHash = hashPassword(pass);
     if (findUserByUsername(name) || findUserByUsername(mail)) {
       // 不明确区分用户名/邮箱占用，降低账号枚举质量
@@ -67,19 +100,43 @@ export async function POST(req: NextRequest) {
     const now = nowIso();
     const userRole = getRoleByKey("user");
     if (!userRole) throw new HttpError(500, "server_error", "权限等级初始化失败");
+    const status = REQUIRE_EMAIL_VERIFICATION ? "pending" : "active";
     const result = getDb().prepare(
       `INSERT INTO users(username, email, password_hash, display_name, role, role_id,
-         status, permissions, created_at)
-       VALUES (?,?,?,?, 'user', ?, 'active', ?, ?)`
+         status, permissions, email_verified, created_at)
+       VALUES (?,?,?,?, 'user', ?, ?, ?, 0, ?)`
     ).run(name, mail, passwordHash,
       typeof body.displayName === "string" && body.displayName.trim()
         ? body.displayName.trim().slice(0, 40) : name,
-      userRole.id, userRole.permissions, now);
+      userRole.id, status, userRole.permissions, now);
     const userId = Number(result.lastInsertRowid);
+
+    if (REQUIRE_EMAIL_VERIFICATION) {
+      const token = issueEmailVerification(userId);
+      try {
+        await sendVerificationEmail(mail, token);
+      } catch (error) {
+        console.error("[auth-center] verification email failed", error);
+        audit("user_register", { userId, ip, detail: "mail_failed" });
+        throw new HttpError(503, "mail_failed", "验证邮件发送失败，请稍后重试或联系管理员");
+      }
+      audit("user_register", { userId, ip, detail: "pending_email" });
+      if (formMode) return pendingRedirect(next, mail);
+      return NextResponse.json(
+        {
+          ok: true,
+          pending: true,
+          email: mail,
+          message: "验证邮件已发送，请打开邮件完成验证后登录",
+        },
+        { status: 202, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     const token = createSession(userId, SESSION_TTL_SECONDS, {
-      ip: clientIp(req), userAgent: req.headers.get("user-agent") || "",
+      ip, userAgent: req.headers.get("user-agent") || "",
     });
-    audit("user_register", { userId, ip: clientIp(req) });
+    audit("user_register", { userId, ip, detail: "e2e_or_disabled_verification" });
     const user = getDb().prepare("SELECT * FROM users WHERE id = ?").get(userId);
     const options = sessionCookieOptions(SESSION_TTL_SECONDS);
     if (formMode) {

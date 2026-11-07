@@ -154,5 +154,16 @@ if (watch.body?.rule?.id) {
   });
 }
 
+const detail = await fetch(BASE + "/api/admin/risk/ip?ip=127.0.0.1", {
+  headers: { Cookie: adminLogin.cookie },
+});
+const detailBody = await detail.json().catch(() => null);
+ok(detail.status === 200 && Array.isArray(detailBody?.observations),
+  "IP detail API returns observations");
+const deniedDetail = await fetch(BASE + "/api/admin/risk/ip?ip=127.0.0.1", {
+  headers: { Cookie: spoofed.cookie },
+});
+ok(deniedDetail.status === 403, "normal user cannot read IP detail");
+
 console.log(failures === 0 ? "\nALL SECURITY CHECKS PASSED" : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);
