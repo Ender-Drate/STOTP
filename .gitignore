@@ -1,13 +1,15 @@
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-server/data/
+# Auth Center
+node_modules/
+.next/
+data/
+next-env.d.ts
+shots/
+*.log
+.tmp/
 *.db
 *.sqlite3
-*.log
 
-# Android / Gradle
+# Android / Gradle (legacy client)
 android/.gradle/
 android/**/build/
 android/local.properties
@@ -18,13 +20,5 @@ android/.idea/
 captures/
 
 # Local scratch
-.tmp/
 .DS_Store
 Thumbs.db
-
-# Auth Center
-auth-center/node_modules/
-auth-center/.next/
-auth-center/data/
-auth-center/next-env.d.ts
-auth-center/shots/
