@@ -3,6 +3,8 @@ import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { requireUser } from "@/lib/admin";
 import { audit } from "@/lib/db";
 import { assertSameOrigin, clientIp, errorResponse, HttpError, readJson } from "@/lib/http";
+import { decryptPasswordField } from "@/lib/password-crypto";
+import { requireCurrentPassword, requireSecondFactor } from "@/lib/reauth";
 import { createPasskey, listPasskeys } from "@/lib/passkeys";
 import {
   consumeWebauthnChallenge, RP_ID, RP_ORIGIN, WEBAUTHN_COOKIE, webauthnCookieOptions,
@@ -13,6 +15,10 @@ export const runtime = "nodejs";
 interface Body {
   response?: unknown;
   name?: string;
+  code?: string;
+  password?: string;
+  password_enc?: string;
+  password_key?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -20,6 +26,11 @@ export async function POST(req: NextRequest) {
     assertSameOrigin(req);
     const user = await requireUser();
     const body = await readJson<Body>(req);
+    const password = decryptPasswordField(
+      body.password, body.password_enc, body.password_key,
+    );
+    requireCurrentPassword(user, password, "passkey_add");
+    requireSecondFactor(user, body.code || "", "passkey_add");
     const ticket = req.cookies.get(WEBAUTHN_COOKIE)?.value || "";
     const challenge = consumeWebauthnChallenge(ticket, "register", clientIp(req));
     if (!challenge || challenge.user_id !== user.id) {

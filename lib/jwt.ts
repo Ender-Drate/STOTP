@@ -73,7 +73,10 @@ export function signJwt(claims: Record<string, unknown>): string {
   return `${input}.${signature}`;
 }
 
-export function verifyJwt(token: string): Record<string, unknown> {
+export function verifyJwt(
+  token: string,
+  options: { audience?: string; issuer?: string } = {},
+): Record<string, unknown> {
   const parts = token.split(".");
   if (parts.length !== 3) throw new Error("malformed token");
   const [headerB64, payloadB64, signatureB64] = parts;
@@ -90,6 +93,11 @@ export function verifyJwt(token: string): Record<string, unknown> {
   const claims = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
   const now = Math.floor(Date.now() / 1000);
   if (typeof claims.exp === "number" && now > claims.exp + 30) throw new Error("expired");
+  const expectedIssuer = options.issuer ?? PUBLIC_URL;
+  if (claims.iss !== expectedIssuer) throw new Error("bad issuer");
+  if (options.audience !== undefined && claims.aud !== options.audience) {
+    throw new Error("bad audience");
+  }
   return claims as Record<string, unknown>;
 }
 

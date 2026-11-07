@@ -146,11 +146,12 @@ ok(me2.body?.user?.id === localId, "same local user on repeat login");
 
 const setup = await json("/api/settings/totp/setup", {
   method: "POST", headers: { Cookie: linked.cookie },
+  body: JSON.stringify({ password: localPassword }),
 });
 const secret = setup.body?.secret;
 const enabled = await json("/api/settings/totp/enable", {
   method: "POST", headers: { Cookie: linked.cookie },
-  body: JSON.stringify({ secret, code: totp(secret) }),
+  body: JSON.stringify({ password: localPassword, code: totp(secret) }),
 });
 ok(enabled.res.status === 200, "enable TOTP on bound local account");
 

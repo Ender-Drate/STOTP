@@ -123,7 +123,7 @@ grant_type=authorization_code
   "email": "user@example.com",
   "email_verified": false,
   "picture": "https://…/api/oauth/head?uid=4&sig=…",
-  "permissions": ["stotp.bind"]
+  "permissions": ["oauth.apps.manage"]
 }`} />
           </div>
         </section>

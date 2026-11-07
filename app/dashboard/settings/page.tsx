@@ -33,6 +33,7 @@ export default async function SettingsPage() {
           role: user.role,
           createdAt: user.created_at,
         }}
+        totpEnabled={Boolean(user.totp_secret)}
       />
       <ProviderLinksPanel links={listUserProviderLinks(user.id).map((item) => ({
         providerId: item.providerId,
@@ -47,7 +48,7 @@ export default async function SettingsPage() {
         name: item.name,
         createdAt: item.created_at,
         lastUsedAt: item.last_used_at,
-      }))} />
+      }))} totpEnabled={Boolean(user.totp_secret)} />
       <SessionsPanel sessions={listUserSessions(user.id).map((session) => ({
         id: session.id,
         current: session.id === sessionId,

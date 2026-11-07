@@ -167,22 +167,13 @@ CREATE TABLE IF NOT EXISTS audit (
   detail TEXT
 );
 
-CREATE TABLE IF NOT EXISTS stotp_bindings (
-  user_id INTEGER PRIMARY KEY,
-  client_id TEXT NOT NULL UNIQUE,
-  account_id TEXT,
-  status TEXT NOT NULL DEFAULT 'active',
-  created_at TEXT NOT NULL,
-  last_verified_at TEXT
-);
-
 CREATE TABLE IF NOT EXISTS login_challenges (
   token_hash TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
   ttl_seconds INTEGER NOT NULL,
   ip TEXT NOT NULL,
-  method TEXT NOT NULL DEFAULT 'stotp',
+  method TEXT NOT NULL DEFAULT 'totp',
   attempts INTEGER NOT NULL DEFAULT 0,
   used INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
@@ -265,6 +256,19 @@ CREATE TABLE IF NOT EXISTS login_failures (
   count INTEGER NOT NULL DEFAULT 0,
   first_at INTEGER NOT NULL,
   last_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL DEFAULT 0,
+  reset_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS totp_pending (
+  user_id INTEGER PRIMARY KEY,
+  secret TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS captcha_challenges (
@@ -407,7 +411,7 @@ export function getDb(): DatabaseSync {
   const challengeColumns = db.prepare("PRAGMA table_info(login_challenges)")
     .all() as Array<{ name: string }>;
   if (!challengeColumns.some((column) => column.name === "method")) {
-    db.exec("ALTER TABLE login_challenges ADD COLUMN method TEXT NOT NULL DEFAULT 'stotp'");
+    db.exec("ALTER TABLE login_challenges ADD COLUMN method TEXT NOT NULL DEFAULT 'totp'");
   }
   const linkTicketColumns = db.prepare("PRAGMA table_info(provider_link_tickets)")
     .all() as Array<{ name: string }>;

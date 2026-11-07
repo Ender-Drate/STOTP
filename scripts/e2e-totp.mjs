@@ -66,6 +66,7 @@ const cookie = reg.cookie;
 
 const setup = await json("/api/settings/totp/setup", {
   method: "POST", headers: { Cookie: cookie },
+  body: JSON.stringify({ password }),
 });
 ok(setup.res.status === 200 && setup.body?.secret && setup.body?.qr?.startsWith("data:image/"),
   "TOTP setup returns secret + QR");
@@ -73,13 +74,13 @@ const secret = setup.body.secret;
 
 const badEnable = await json("/api/settings/totp/enable", {
   method: "POST", headers: { Cookie: cookie },
-  body: JSON.stringify({ secret, code: "000000" }),
+  body: JSON.stringify({ password, code: "000000" }),
 });
 ok(badEnable.res.status === 400, "wrong code cannot enable TOTP");
 
 const enable = await json("/api/settings/totp/enable", {
   method: "POST", headers: { Cookie: cookie },
-  body: JSON.stringify({ secret, code: totp(secret) }),
+  body: JSON.stringify({ password, code: totp(secret) }),
 });
 ok(enable.res.status === 200, "enable TOTP");
 
@@ -115,12 +116,12 @@ ok(replay.res.status === 401, "TOTP ticket is single-use");
 
 const badDisable = await json("/api/settings/totp/disable", {
   method: "POST", headers: { Cookie: goodOtp.cookie },
-  body: JSON.stringify({ password: "wrong" }),
+  body: JSON.stringify({ password: "wrong", code: totp(secret) }),
 });
 ok(badDisable.res.status === 400, "disable requires password");
 const disable = await json("/api/settings/totp/disable", {
   method: "POST", headers: { Cookie: goodOtp.cookie },
-  body: JSON.stringify({ password }),
+  body: JSON.stringify({ password, code: totp(secret) }),
 });
 ok(disable.res.status === 200, "disable TOTP");
 await json("/api/auth/logout", {

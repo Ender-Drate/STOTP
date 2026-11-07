@@ -21,8 +21,10 @@ export async function GET(req: NextRequest) {
     return new NextResponse("Too Many Requests", { status: 429 });
   }
   const uid = Number(req.nextUrl.searchParams.get("uid") || 0);
+  const expiresAt = Number(req.nextUrl.searchParams.get("exp") || 0);
   const signature = req.nextUrl.searchParams.get("sig") || "";
-  if (!Number.isInteger(uid) || uid <= 0 || !verifyAvatarSignature(uid, signature)) {
+  if (!Number.isInteger(uid) || uid <= 0
+    || !verifyAvatarSignature(uid, expiresAt, signature)) {
     return new NextResponse("Not Found", { status: 404 });
   }
   const user = findUserById(uid);

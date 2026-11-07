@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PUBLIC_URL } from "@/lib/config";
 import { audit, findUserById, getDb } from "@/lib/db";
 import { requireUser } from "@/lib/admin";
 import { assertSameOrigin, clientIp, errorResponse, HttpError, readJson } from "@/lib/http";
@@ -34,6 +35,9 @@ export async function PATCH(req: NextRequest) {
         }
         if (!["http:", "https:"].includes(parsed.protocol)) {
           throw new HttpError(400, "invalid_request", "头像只支持 http/https");
+        }
+        if (parsed.origin !== new URL(PUBLIC_URL).origin) {
+          throw new HttpError(400, "invalid_request", "头像只允许本站地址，避免第三方追踪");
         }
         avatarUrl = value;
       } else {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_TTL_SECONDS, STOTP_ENABLED } from "@/lib/config";
+import { SESSION_TTL_SECONDS } from "@/lib/config";
 import { verifyPassword } from "@/lib/crypto";
 import { audit, findUserById, findUserByUsername, getDb, nowIso } from "@/lib/db";
 import {
@@ -10,7 +10,6 @@ import {
   setLinkTicketUser,
 } from "@/lib/login-providers";
 import { createSession, sessionCookieOptions } from "@/lib/session";
-import { getBinding } from "@/lib/stotp-store";
 import { isIpBlocked } from "@/lib/ip-rules";
 import { decryptPasswordField } from "@/lib/password-crypto";
 import { publicUser } from "@/lib/users";
@@ -62,12 +61,6 @@ export async function POST(req: NextRequest) {
         ticket,
         next: safeNextPath(body.next || row.next),
       });
-    }
-    if (getBinding(user.id)) {
-      throw new HttpError(403, "stotp_required",
-        STOTP_ENABLED
-          ? "该账号启用了 STOTP，请先在设置中解除旧版绑定后再绑定第三方账户"
-          : "该账号存在旧版 STOTP 绑定，当前无法绑定第三方账户");
     }
     try {
       linkProvider(provider.id, row.subject, user.id);

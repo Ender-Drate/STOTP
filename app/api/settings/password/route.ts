@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE } from "@/lib/config";
 import { audit, findUserById, getDb } from "@/lib/db";
 import { requireUser } from "@/lib/admin";
-import { hashPassword, sha256, verifyPassword } from "@/lib/crypto";
+import { hashPassword } from "@/lib/crypto";
 import { assertSameOrigin, clientIp, errorResponse, HttpError, readJson } from "@/lib/http";
 import { decryptPasswordField } from "@/lib/password-crypto";
+import { requireCurrentPassword, requireSecondFactor } from "@/lib/reauth";
+import { sessionCookieOptions } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,7 @@ interface Body {
   currentPassword_enc?: string;
   newPassword_enc?: string;
   password_key?: string;
+  code?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -27,21 +29,36 @@ export async function POST(req: NextRequest) {
     const next = decryptPasswordField(
       body.newPassword, body.newPassword_enc, body.password_key, "新密码",
     );
-    if (!verifyPassword(current, user.password_hash)) {
-      throw new HttpError(400, "invalid_credentials", "当前密码不正确");
+    requireCurrentPassword(user, current, "password_change");
+    requireSecondFactor(user, body.code || "", "password_change");
+    if (next.length < 10) {
+      throw new HttpError(400, "invalid_request", "新密码至少 10 位");
     }
-    if (next.length < 10) throw new HttpError(400, "invalid_request", "新密码至少 10 位");
-    getDb().prepare("UPDATE users SET password_hash = ? WHERE id = ?")
-      .run(hashPassword(next), user.id);
-    // 修改密码后使其它会话失效，保留当前会话
-    const token = req.cookies.get(SESSION_COOKIE)?.value;
-    if (token) {
-      getDb().prepare("DELETE FROM sessions WHERE user_id = ? AND id != ?")
-        .run(user.id, sha256(token));
+
+    const db = getDb();
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      db.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+        .run(hashPassword(next), user.id);
+      // 密码轮换后，所有旧凭据都必须失效，不能只删 session。
+      db.prepare("UPDATE tokens SET revoked = 1 WHERE user_id = ?").run(user.id);
+      db.prepare("DELETE FROM passkeys WHERE user_id = ?").run(user.id);
+      db.prepare("DELETE FROM provider_links WHERE user_id = ?").run(user.id);
+      db.prepare("DELETE FROM login_challenges WHERE user_id = ?").run(user.id);
+      db.prepare("DELETE FROM webauthn_challenges WHERE user_id = ?").run(user.id);
+      db.prepare("DELETE FROM totp_pending WHERE user_id = ?").run(user.id);
+      db.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
     }
+
     audit("password_change", { userId: user.id, ip: clientIp(req) });
     const updated = findUserById(user.id)!;
-    return NextResponse.json({ ok: true, user: updated.id });
+    const res = NextResponse.json({ ok: true, logout: true, user: updated.id });
+    res.cookies.set({ ...sessionCookieOptions(0), value: "" });
+    return res;
   } catch (error) {
     return errorResponse(error);
   }

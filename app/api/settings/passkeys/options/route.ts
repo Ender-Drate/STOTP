@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { requireUser } from "@/lib/admin";
-import { audit, nowIso } from "@/lib/db";
-import { assertSameOrigin, clientIp, errorResponse, HttpError } from "@/lib/http";
+import { assertSameOrigin, clientIp, errorResponse, HttpError, readJson } from "@/lib/http";
+import { decryptPasswordField } from "@/lib/password-crypto";
+import { requireCurrentPassword, requireSecondFactor } from "@/lib/reauth";
 import { listPasskeys } from "@/lib/passkeys";
 import {
   createWebauthnChallenge, RP_ID, RP_NAME, WEBAUTHN_COOKIE, webauthnCookieOptions,
@@ -10,10 +11,23 @@ import {
 
 export const runtime = "nodejs";
 
+interface Body {
+  code?: string;
+  password?: string;
+  password_enc?: string;
+  password_key?: string;
+}
+
 export async function POST(req: NextRequest) {
   try {
     assertSameOrigin(req);
     const user = await requireUser();
+    const body = await readJson<Body>(req);
+    const password = decryptPasswordField(
+      body.password, body.password_enc, body.password_key,
+    );
+    requireCurrentPassword(user, password, "passkey_add");
+    requireSecondFactor(user, body.code || "", "passkey_add");
     const existing = listPasskeys(user.id);
     const options = await generateRegistrationOptions({
       rpName: RP_NAME,
