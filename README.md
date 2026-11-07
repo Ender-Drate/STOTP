@@ -392,6 +392,10 @@ npm run e2e:rbac
 | --- | --- |
 | ![captcha](docs/screenshots/captcha.png) | ![mobile](docs/screenshots/mobile-dashboard.png) |
 
+## 集成
+
+- **Z-BlogPHP OAuth2 登录插件**：[`integrations/zblog-oauth2`](integrations/zblog-oauth2/README.md)，支持授权码 + PKCE、自动注册、已验证邮箱绑定，登录页注入按钮。
+
 ## 已知限制
 
 - 统计页的 QPS 是认证事件速率，不是全站 HTTP 请求计数；网络指标依赖 Linux `/proc/net/dev`。
