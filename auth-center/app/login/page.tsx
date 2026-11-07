@@ -25,7 +25,7 @@ export default async function LoginPage({
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="auth-brand">
-          <div className="brand-mark">S</div>
+          <img className="brand-mark" src="/icon.svg" alt="" width={30} height={30} />
           <div>
             <div className="brand-name">{BRAND.name}</div>
             <div className="card-sub">统一登录中心</div>

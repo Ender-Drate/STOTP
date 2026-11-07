@@ -65,8 +65,9 @@ button, input, select, textarea { font-family: inherit; }
 .brand-mark {
   width: 30px; height: 30px; border-radius: 9px; background: var(--accent);
   color: #fff; font-weight: 700; font-size: 15px;
-  display: grid; place-items: center; letter-spacing: -0.02em;
+  display: grid; place-items: center; letter-spacing: -0.02em; flex: none;
 }
+img.brand-mark { object-fit: cover; background: transparent; }
 .brand-name { font-weight: 650; font-size: 15px; letter-spacing: -0.02em; }
 
 .nav { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; }

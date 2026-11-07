@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { CodeBlock } from "@/app/components/CodeBlock";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export default function DocsPage() {
     <div className="docs-shell">
       <aside className="docs-side">
         <Link href="/" className="docs-brand">
-          <span className="brand-mark">S</span>
+          <img className="brand-mark" src="/icon.svg" alt="" width={30} height={30} />
           <span>
             <span className="docs-brand-name">STOTP 账户</span>
             <span className="docs-brand-sub">接入文档</span>

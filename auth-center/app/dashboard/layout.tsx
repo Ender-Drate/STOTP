@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="app">
       <aside className="sidebar">
         <Link href="/dashboard" className="brand" style={{ color: "inherit" }}>
-          <div className="brand-mark">S</div>
+          <img className="brand-mark" src="/icon.svg" alt="" width={30} height={30} />
           <div>
             <div className="brand-name">{BRAND.name}</div>
             <div className="card-sub">统一登录中心</div>

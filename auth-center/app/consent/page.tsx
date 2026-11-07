@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BRAND } from "@/lib/config";
 import { HttpError } from "@/lib/http";
@@ -30,7 +30,7 @@ function ErrorCard({ message }: { message: string }) {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="auth-brand">
-          <div className="brand-mark">S</div>
+          <img className="brand-mark" src="/icon.svg" alt="" width={30} height={30} />
           <div className="brand-name">{BRAND.name}</div>
         </div>
         <h1 className="auth-title">无法完成授权</h1>
@@ -80,7 +80,7 @@ export default async function ConsentPage({
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="auth-brand">
-          <div className="brand-mark">S</div>
+          <img className="brand-mark" src="/icon.svg" alt="" width={30} height={30} />
           <div>
             <div className="brand-name">{BRAND.name}</div>
             <div className="card-sub">授权确认</div>
