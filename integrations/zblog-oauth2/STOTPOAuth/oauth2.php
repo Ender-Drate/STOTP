@@ -189,7 +189,7 @@ function stotp_oauth_callback()
     $verifiedValue = $provider->VerifiedField !== ''
         ? stotp_oauth_path($profile, $provider->VerifiedField) : null;
     $verified = (bool) $provider->TrustEmail
-        || $verifiedValue === true || $verifiedValue === 'true' || $verifiedValue == 1;
+        || $verifiedValue === true || $verifiedValue === 'true';
 
     $member = null;
     $link = stotp_oauth_find_link((int) $provider->ID, $subject);
@@ -203,10 +203,10 @@ function stotp_oauth_callback()
     if (!$member && $email === '') {
         stotp_oauth_fail('登录服务未返回邮箱，无法创建或匹配本地账号。');
     }
-    if (!$member && !$verified && stotp_oauth_config('allow_email_link', 1)) {
+    if (!$member && !$verified && stotp_oauth_config('allow_email_link', 0)) {
         stotp_oauth_fail('登录服务返回的邮箱未验证，无法自动绑定。');
     }
-    if (!$member && $email !== '' && stotp_oauth_config('allow_email_link', 1)) {
+    if (!$member && $email !== '' && stotp_oauth_config('allow_email_link', 0)) {
         $existing = $zbp->GetMemberByEmail($email);
         if ($existing && (int) $existing->ID > 0) {
             $member = $existing;

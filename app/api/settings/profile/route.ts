@@ -41,9 +41,12 @@ export async function PATCH(req: NextRequest) {
       }
     }
     try {
+      const emailChanged = mail !== user.email;
       getDb().prepare(
-        "UPDATE users SET display_name = ?, email = ?, avatar_url = ? WHERE id = ?"
-      ).run(displayName, mail, avatarUrl, user.id);
+        `UPDATE users SET display_name = ?, email = ?, avatar_url = ?,
+           email_verified = CASE WHEN ? THEN 0 ELSE email_verified END
+         WHERE id = ?`
+      ).run(displayName, mail, avatarUrl, emailChanged ? 1 : 0, user.id);
     } catch {
       throw new HttpError(409, "already_exists", "邮箱已被其他账号使用");
     }

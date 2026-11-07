@@ -53,7 +53,7 @@ const captcha = await json("/api/auth/captcha");
 ok(captcha.res.status === 200 && captcha.body?.ticket && captcha.body?.image,
   "captcha challenge issued");
 const code = String(captcha.body.testCode || "");
-ok(/^[A-Z2-9]{4}$/.test(code), "captcha contains 4 characters (test mode)", code);
+ok(/^[A-Z2-9]{5}$/.test(code), "captcha contains 5 characters (test mode)", code);
 
 const wrongCaptcha = await json("/api/auth/login", {
   method: "POST",

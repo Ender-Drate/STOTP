@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   try {
     const ip = clientIp(req);
-    if (!rateLimit(`captcha:${ip}`, 30, 60)) {
+    if (!rateLimit(`captcha:${ip}`, 10, 60)
+      || !rateLimit("captcha:global", 120, 60)) {
       throw new HttpError(429, "rate_limited", "请求过于频繁");
     }
     const { ticket, image, testCode } = await generateCaptcha(ip);

@@ -19,6 +19,7 @@
     "e2e:totp": "node scripts/e2e-totp.mjs",
     "e2e:captcha": "node scripts/e2e-captcha.mjs",
     "e2e:encrypted": "node scripts/e2e-encrypted-password.mjs",
+    "e2e:security": "node scripts/e2e-security.mjs",
     "e2e:risk": "node scripts/e2e-risk.mjs",
     "e2e:sessions": "node scripts/e2e-sessions.mjs",
     "e2e:provider": "node scripts/e2e-provider.mjs"

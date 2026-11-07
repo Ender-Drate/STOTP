@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sha256 } from "@/lib/crypto";
 import { findUserById, getDb, nowSec } from "@/lib/db";
-import { HttpError } from "@/lib/http";
+import { HttpError, clientIp, rateLimit } from "@/lib/http";
 import {
   authenticateClient,
   issueTokens,
@@ -20,6 +20,9 @@ function oauthError(status: number, error: string, description: string): NextRes
 
 export async function POST(req: NextRequest) {
   try {
+    if (!rateLimit(`oauth-token:${clientIp(req)}`, 120, 60)) {
+      return oauthError(429, "rate_limited", "请求过于频繁");
+    }
     const form = new URLSearchParams(await req.text());
     const client = authenticateClient(req, form);
     const grantType = form.get("grant_type");

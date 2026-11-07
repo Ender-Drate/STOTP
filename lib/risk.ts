@@ -87,6 +87,11 @@ export function loginFailureKey(ip: string, identifier: string): string {
   return sha256(`${ip}\n${identifier.trim().toLowerCase()}`);
 }
 
+/** 账号维度失败计数，跨 IP 共享，避免攻击者换 IP 重置验证码。 */
+export function accountFailureKey(identifier: string): string {
+  return sha256(`account\n${identifier.trim().toLowerCase()}`);
+}
+
 export function getLoginFailureCount(key: string): number {
   const settings = getRiskSettings();
   const row = getDb().prepare("SELECT * FROM login_failures WHERE key = ?").get(key) as unknown as {

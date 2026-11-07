@@ -207,7 +207,7 @@ require $blogpath . 'zb_system/admin/admin_top.php';
       <table class="tableFull tableBorder">
         <tr><th colspan="2">全局设置</th></tr>
         <tr><td>自动注册</td><td><label><input type="checkbox" name="auto_register" value="1" <?php echo stotp_oauth_config('auto_register', 1) ? 'checked' : ''; ?>> 未绑定用户首次登录时创建 Z-Blog 账号</label></td></tr>
-        <tr><td>已验证邮箱自动绑定</td><td><label><input type="checkbox" name="allow_email_link" value="1" <?php echo stotp_oauth_config('allow_email_link', 1) ? 'checked' : ''; ?>> 邮箱已验证且本地存在时绑定已有账号</label></td></tr>
+        <tr><td>已验证邮箱自动绑定</td><td><label><input type="checkbox" name="allow_email_link" value="1" <?php echo stotp_oauth_config('allow_email_link', 0) ? 'checked' : ''; ?>> 邮箱已验证且本地存在时绑定已有账号（默认关闭，避免邮箱关联接管）</label></td></tr>
         <tr><td>默认用户等级</td><td><select name="default_level"><?php for ($level = 2; $level <= 6; $level++) {
             $label = isset($zbp->lang['user_level_name'][$level]) ? $zbp->lang['user_level_name'][$level] : '等级 ' . $level;
             echo '<option value="' . $level . '"' . ((int) stotp_oauth_config('default_level', 5) === $level ? ' selected' : '') . '>' . $h($label) . '</option>';

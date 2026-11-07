@@ -33,7 +33,7 @@ export function username(value: unknown): string {
 
 export function password(value: unknown): string {
   const result = typeof value === "string" ? value : "";
-  if (result.length < 8) throw new HttpError(400, "invalid_request", "密码至少 8 位");
+  if (result.length < 10) throw new HttpError(400, "invalid_request", "密码至少 10 位");
   if (result.length > 128) throw new HttpError(400, "invalid_request", "密码过长");
   return result;
 }

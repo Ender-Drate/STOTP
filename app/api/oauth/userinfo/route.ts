@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PUBLIC_URL } from "@/lib/config";
 import { sha256 } from "@/lib/crypto";
 import { findUserById, getDb } from "@/lib/db";
 import { verifyJwt } from "@/lib/jwt";
+import { avatarUrl } from "@/lib/avatar";
 
 export const runtime = "nodejs";
 
@@ -54,11 +54,12 @@ export async function GET(req: NextRequest) {
   }
   if (scope.includes("email")) {
     data.email = user.email;
-    data.email_verified = true;
+    data.email_verified = user.email_verified === 1;
   }
   if (scope.includes("head")) {
-    data.picture = user.avatar_url || `${PUBLIC_URL}/api/oauth/head?uid=${user.id}`;
-    data.avatar_url = data.picture;
+    const picture = avatarUrl(user.id);
+    data.picture = picture;
+    data.avatar_url = picture;
   }
   if (scope.includes("permission")) {
     data.permissions = permissions;

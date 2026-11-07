@@ -182,7 +182,7 @@ ok(bobDisable.res.status === 200, "users.disable can disable user");
 const carolLogin = await json("/api/auth/login", {
   method: "POST", body: JSON.stringify({ username: carol.username, password }),
 });
-ok(carolLogin.res.status === 403, "disabled user cannot login");
+ok(carolLogin.res.status === 401, "disabled user cannot login");
 const bobEnable = await json(`/api/admin/users/${carol.id}`, {
   method: "PATCH", headers: { Cookie: bobCookie },
   body: JSON.stringify({ status: "active" }),

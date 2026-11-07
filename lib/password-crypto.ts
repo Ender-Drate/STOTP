@@ -5,6 +5,7 @@ import {
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { HttpError } from "./http";
+import { PUBLIC_URL } from "./config";
 
 interface StoredKeys {
   kid: string;
@@ -106,6 +107,16 @@ function decryptValue(encrypted: string, keyId?: string): string {
   }
 }
 
+function requiresEncryptedPassword(): boolean {
+  const flag = process.env.AUTH_REQUIRE_ENCRYPTED_PASSWORD;
+  if (flag === "1") return true;
+  if (flag === "0") return false;
+  // 生产 HTTPS 默认拒绝明文；本地 http 测试环境保留兼容。
+  return process.env.NODE_ENV === "production"
+    && PUBLIC_URL.startsWith("https://")
+    && process.env.AUTH_E2E !== "1";
+}
+
 export function decryptPasswordField(
   plain: string | undefined,
   encrypted: string | undefined,
@@ -113,7 +124,7 @@ export function decryptPasswordField(
   label = "密码",
 ): string {
   if (encrypted) return decryptValue(encrypted, keyId);
-  if (process.env.AUTH_REQUIRE_ENCRYPTED_PASSWORD === "1") {
+  if (requiresEncryptedPassword()) {
     throw new HttpError(426, "encrypted_password_required", `${label}必须通过 HTTPS 加密提交`);
   }
   return typeof plain === "string" ? plain : "";

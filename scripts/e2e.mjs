@@ -142,7 +142,14 @@ const profile = await userinfo.json();
 ok(userinfo.status === 200, "userinfo 200");
 ok(profile.username === username, "userinfo username", profile.username);
 ok(profile.email === `${username}@example.com`, "userinfo email");
+ok(profile.email_verified === false, "email_verified is false without verification");
 ok(Array.isArray(profile.permissions), "userinfo permissions");
+const picture = await fetch(profile.picture, { redirect: "manual" });
+ok(picture.status === 200 && !picture.headers.get("location")
+  && String(picture.headers.get("content-type")).includes("image/svg+xml"),
+  "signed avatar returns SVG without redirect");
+const unsignedAvatar = await fetch(`${BASE}/api/oauth/head?uid=1`, { redirect: "manual" });
+ok(unsignedAvatar.status === 404, "unsigned avatar is not enumerable");
 
 const refreshRes = await fetch(BASE + "/api/oauth/token", {
   method: "POST",

@@ -121,8 +121,8 @@ grant_type=authorization_code
   "preferred_username": "Ender_drate",
   "name": "Ender",
   "email": "user@example.com",
-  "email_verified": true,
-  "picture": "https://…",
+  "email_verified": false,
+  "picture": "https://…/api/oauth/head?uid=4&sig=…",
   "permissions": ["stotp.bind"]
 }`} />
           </div>
@@ -145,7 +145,7 @@ grant_type=authorization_code
                 <tr><td><span className="method get">GET</span></td><td><code>/api/oauth/authorize</code></td><td>用户授权，返回 code（也支持 POST 提交同意）</td></tr>
                 <tr><td><span className="method post">POST</span></td><td><code>/api/oauth/token</code></td><td>code / refresh_token 换令牌</td></tr>
                 <tr><td><span className="method get">GET</span></td><td><code>/api/oauth/userinfo</code></td><td>Bearer 读取用户资料</td></tr>
-                <tr><td><span className="method get">GET</span></td><td><code>/api/oauth/head?uid=</code></td><td>头像（302 或 SVG）</td></tr>
+                <tr><td><span className="method get">GET</span></td><td><code>/api/oauth/head?uid=&amp;sig=</code></td><td>签名头像（只输出 SVG，不跳转外部 URL）</td></tr>
                 <tr><td><span className="method post">POST</span></td><td><code>/api/oauth/revoke</code></td><td>撤销 access / refresh token</td></tr>
                 <tr><td><span className="method get">GET</span></td><td><code>/api/oauth/jwks</code></td><td>RS256 公钥（JWKS）</td></tr>
                 <tr><td><span className="method get">GET</span></td><td><code>/.well-known/openid-configuration</code></td><td>OIDC 发现文档</td></tr>

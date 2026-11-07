@@ -8,6 +8,7 @@ import { randomToken, safeEqual, sha256, sha256Base64url } from "./crypto";
 import { getDb, nowSec, type OAuthClient, type User } from "./db";
 import { HttpError } from "./http";
 import { signJwt } from "./jwt";
+import { avatarUrl } from "./avatar";
 
 export const SUPPORTED_SCOPES = [
   "openid",
@@ -154,11 +155,10 @@ function profileClaims(user: User, scopes: string[]): Record<string, unknown> {
   }
   if (scopes.includes("email")) {
     claims.email = user.email;
-    claims.email_verified = true;
+    claims.email_verified = user.email_verified === 1;
   }
   if (scopes.includes("head")) {
-    claims.picture = user.avatar_url ||
-      `${PUBLIC_URL}/api/oauth/head?uid=${user.id}`;
+    claims.picture = avatarUrl(user.id);
   }
   if (scopes.includes("permission")) {
     try {
