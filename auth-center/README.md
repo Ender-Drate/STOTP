@@ -219,6 +219,17 @@ TLS 指纹无法由浏览器 JS 计算。若前置 WAF/CDN 提供，会读取
 
 封禁检查覆盖登录、OTP、Passkey、外部 OAuth2、绑定与注册入口。
 
+### 登录设备与会话
+
+设置页「登录设备」会列出当前账号的有效会话：
+
+- 设备类型 / 浏览器、IP、最近活动时间；
+- 当前设备标记；
+- 撤销单个设备；
+- 退出其他设备（保留当前会话）。
+
+会话记录登录时的 IP/UA，并在访问时更新 `last_seen_at`；撤销当前设备会清除 cookie 并回到登录页。
+
 ## 权限等级（RBAC）
 
 管理台使用「权限等级 + 权限节点」，而不是固定的 admin/user 两档。
@@ -327,6 +338,7 @@ npm run e2e:totp
 npm run e2e:provider
 npm run e2e:captcha
 npm run e2e:risk
+npm run e2e:sessions
 ```
 
 覆盖：TOTP 启用/登录/重放/关闭；外部 OAuth2 授权码回调、本地绑定、TOTP 二阶段绑定、已绑定复用、解绑；

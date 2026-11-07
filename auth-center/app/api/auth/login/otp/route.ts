@@ -68,7 +68,9 @@ export async function POST(req: NextRequest) {
 
     function complete(auditEvent: string, detail?: string): NextResponse {
       markChallengeUsed(ticket);
-      const token = createSession(user!.id, challenge!.ttl_seconds);
+      const token = createSession(user!.id, challenge!.ttl_seconds, {
+        ip: clientIp(req), userAgent: req.headers.get("user-agent") || "",
+      });
       getDb().prepare("UPDATE users SET last_login_at = ? WHERE id = ?")
         .run(nowIso(), user!.id);
       audit(auditEvent, {

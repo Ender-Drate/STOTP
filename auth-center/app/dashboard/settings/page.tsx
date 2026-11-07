@@ -4,14 +4,17 @@ import { ProfileForms } from "@/app/components/ProfileForms";
 import { TotpPanel } from "@/app/components/TotpPanel";
 import { PasskeyPanel } from "@/app/components/PasskeyPanel";
 import { ProviderLinksPanel } from "@/app/components/ProviderLinksPanel";
+import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { listPasskeys } from "@/lib/passkeys";
 import { listUserProviderLinks } from "@/lib/login-providers";
+import { currentSessionId, listUserSessions } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const user = await currentUser();
   if (!user) redirect("/login?next=/dashboard/settings");
+  const sessionId = await currentSessionId();
   return (
     <>
       <div className="page-head">
@@ -44,6 +47,16 @@ export default async function SettingsPage() {
         name: item.name,
         createdAt: item.created_at,
         lastUsedAt: item.last_used_at,
+      }))} />
+      <SessionsPanel sessions={listUserSessions(user.id).map((session) => ({
+        id: session.id,
+        current: session.id === sessionId,
+        ip: session.ip,
+        userAgent: session.user_agent,
+        createdAt: new Date(session.created_at * 1000).toISOString(),
+        lastSeenAt: session.last_seen_at
+          ? new Date(session.last_seen_at * 1000).toISOString() : null,
+        expiresAt: new Date(session.expires_at * 1000).toISOString(),
       }))} />
     </>
   );

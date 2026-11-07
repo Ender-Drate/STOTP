@@ -70,7 +70,9 @@ export async function POST(req: NextRequest) {
       throw new HttpError(409, "already_linked", "该第三方账户已绑定其他本地账号");
     }
     markLinkTicketUsed(ticket);
-    const token = createSession(user.id, SESSION_TTL_SECONDS);
+    const token = createSession(user.id, SESSION_TTL_SECONDS, {
+      ip: clientIp(req), userAgent: req.headers.get("user-agent") || "",
+    });
     getDb().prepare("UPDATE users SET last_login_at = ? WHERE id = ?")
       .run(nowIso(), user.id);
     audit("provider_link", {

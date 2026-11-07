@@ -69,7 +69,9 @@ export async function POST(req: NextRequest) {
         ? body.displayName.trim().slice(0, 40) : name,
       userRole.id, userRole.permissions, now);
     const userId = Number(result.lastInsertRowid);
-    const token = createSession(userId, SESSION_TTL_SECONDS);
+    const token = createSession(userId, SESSION_TTL_SECONDS, {
+      ip: clientIp(req), userAgent: req.headers.get("user-agent") || "",
+    });
     audit("user_register", { userId, ip: clientIp(req) });
     const user = getDb().prepare("SELECT * FROM users WHERE id = ?").get(userId);
     const options = sessionCookieOptions(SESSION_TTL_SECONDS);
