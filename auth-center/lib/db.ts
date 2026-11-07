@@ -101,7 +101,10 @@ CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  ip TEXT,
+  user_agent TEXT,
+  last_seen_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS oauth_clients (
@@ -406,6 +409,17 @@ export function getDb(): DatabaseSync {
   if (!linkTicketColumns.some((column) => column.name === "user_id")) {
     db.exec("ALTER TABLE provider_link_tickets ADD COLUMN user_id INTEGER");
   }
+  const sessionColumns = db.prepare("PRAGMA table_info(sessions)")
+    .all() as Array<{ name: string }>;
+  for (const column of ["ip", "user_agent"]) {
+    if (!sessionColumns.some((item) => item.name === column)) {
+      db.exec(`ALTER TABLE sessions ADD COLUMN ${column} TEXT`);
+    }
+  }
+  if (!sessionColumns.some((item) => item.name === "last_seen_at")) {
+    db.exec("ALTER TABLE sessions ADD COLUMN last_seen_at INTEGER");
+  }
+  db.exec("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)");
   ensureRoles(db);
   ensureAdmin(db);
   globalForDb.__authCenterDb = db;

@@ -186,7 +186,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(url, 303);
   }
 
-  const token = createSession(user.id, SESSION_TTL_SECONDS);
+  const token = createSession(user.id, SESSION_TTL_SECONDS, {
+    ip: clientIp(req), userAgent: req.headers.get("user-agent") || "",
+  });
   getDb().prepare("UPDATE users SET last_login_at = ? WHERE id = ?")
     .run(nowIso(), user.id);
   audit("provider_login", {

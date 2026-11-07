@@ -135,7 +135,9 @@ export async function POST(req: NextRequest) {
         next,
       });
     }
-    const token = createSession(user.id, ttl);
+    const token = createSession(user.id, ttl, {
+      ip, userAgent: req.headers.get("user-agent") || "",
+    });
     getDb().prepare("UPDATE users SET last_login_at = ? WHERE id = ?").run(nowIso(), user.id);
     audit("login", { userId: user.id, ip: clientIp(req) });
     const options = sessionCookieOptions(ttl);

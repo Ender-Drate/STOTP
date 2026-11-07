@@ -246,6 +246,7 @@ select.input {
 .notice-error { background: var(--danger-soft); color: var(--danger); }
 .notice-ok { background: var(--success-soft); color: var(--success); }
 .kv { border-top: 1px solid var(--line); margin-top: 4px; }
+.session-list { max-height: 380px; overflow-y: auto; }
 .kv-row {
   display: flex; justify-content: space-between; gap: 16px;
   padding: 11px 0; border-bottom: 1px solid var(--line);

@@ -58,7 +58,9 @@ export async function POST(req: NextRequest) {
     getDb().prepare("UPDATE users SET last_login_at = ? WHERE id = ?")
       .run(nowIso(), user.id);
     audit("passkey_login", { userId: user.id, ip: clientIp(req) });
-    const token = createSession(user.id, SESSION_TTL_SECONDS);
+    const token = createSession(user.id, SESSION_TTL_SECONDS, {
+      ip: clientIp(req), userAgent: req.headers.get("user-agent") || "",
+    });
     const options = sessionCookieOptions(SESSION_TTL_SECONDS);
     const res = NextResponse.json({ ok: true, user: publicUser(user), next });
     res.cookies.set(options.name, token, options);
