@@ -15,6 +15,7 @@ import {
 } from "@/lib/http";
 import { createSession, sessionCookieOptions } from "@/lib/session";
 import { isIpBlocked } from "@/lib/ip-rules";
+import { decryptPasswordField } from "@/lib/password-crypto";
 import { publicUser } from "@/lib/users";
 import { getRoleByKey } from "@/lib/roles";
 import { email, username } from "@/lib/validators";
@@ -25,6 +26,8 @@ interface Body {
   username?: string;
   email?: string;
   password?: string;
+  password_enc?: string;
+  password_key?: string;
   displayName?: string;
   next?: string;
 }
@@ -51,7 +54,9 @@ export async function POST(req: NextRequest) {
     }
     const name = username(body.username);
     const mail = email(body.email);
-    const pass = typeof body.password === "string" ? body.password : "";
+    const pass = decryptPasswordField(
+      body.password, body.password_enc, body.password_key,
+    );
     if (pass.length < 8) throw new HttpError(400, "invalid_request", "密码至少 8 位");
     if (pass.length > 128) throw new HttpError(400, "invalid_request", "密码过长");
     if (findUserByUsername(name) || findUserByUsername(mail)) {

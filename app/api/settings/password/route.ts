@@ -4,12 +4,16 @@ import { audit, findUserById, getDb } from "@/lib/db";
 import { requireUser } from "@/lib/admin";
 import { hashPassword, sha256, verifyPassword } from "@/lib/crypto";
 import { assertSameOrigin, clientIp, errorResponse, HttpError, readJson } from "@/lib/http";
+import { decryptPasswordField } from "@/lib/password-crypto";
 
 export const runtime = "nodejs";
 
 interface Body {
   currentPassword?: string;
   newPassword?: string;
+  currentPassword_enc?: string;
+  newPassword_enc?: string;
+  password_key?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -17,8 +21,12 @@ export async function POST(req: NextRequest) {
     assertSameOrigin(req);
     const user = await requireUser();
     const body = await readJson<Body>(req);
-    const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
-    const next = typeof body.newPassword === "string" ? body.newPassword : "";
+    const current = decryptPasswordField(
+      body.currentPassword, body.currentPassword_enc, body.password_key, "当前密码",
+    );
+    const next = decryptPasswordField(
+      body.newPassword, body.newPassword_enc, body.password_key, "新密码",
+    );
     if (!verifyPassword(current, user.password_hash)) {
       throw new HttpError(400, "invalid_credentials", "当前密码不正确");
     }

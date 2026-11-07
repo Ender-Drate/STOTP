@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PasswordInput } from "./PasswordInput";
+import { encryptPassword } from "@/lib/password-client";
 
 interface Props {
   user: {
@@ -61,12 +62,22 @@ export function ProfileForms({ user }: Props) {
     setPasswordBusy(true);
     setPasswordMsg(null);
     try {
+      let currentEnc;
+      let nextEnc;
+      try {
+        currentEnc = await encryptPassword(password.current);
+        nextEnc = await encryptPassword(password.next);
+      } catch {
+        setPasswordMsg({ ok: false, text: "当前环境无法加密密码，请使用 HTTPS 访问" });
+        return;
+      }
       const res = await fetch("/api/settings/password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          currentPassword: password.current,
-          newPassword: password.next,
+          currentPassword_enc: currentEnc.password_enc,
+          newPassword_enc: nextEnc.password_enc,
+          password_key: currentEnc.password_key,
         }),
       });
       const data = await res.json().catch(() => null);

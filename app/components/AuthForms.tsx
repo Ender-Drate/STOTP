@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PasswordInput } from "./PasswordInput";
+import { encryptPassword } from "@/lib/password-client";
 
 function errorOf(payload: unknown, fallback: string): string {
   const data = payload as { error?: { message?: string } } | null;
@@ -38,13 +39,21 @@ export function LoginForm({ next, initialError = "" }: {
     setError("");
     setBusy(true);
     try {
+      let encrypted;
+      try {
+        encrypted = await encryptPassword(password);
+      } catch {
+        setError("当前环境无法加密密码，请使用 HTTPS 访问");
+        return;
+      }
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: identifier, password, remember, next,
+          username: identifier, remember, next,
           captchaTicket: captcha?.ticket || "",
           captchaCode,
+          ...encrypted,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -199,15 +208,22 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
     }
     setBusy(true);
     try {
+      let encrypted;
+      try {
+        encrypted = await encryptPassword(form.password);
+      } catch {
+        setError("当前环境无法加密密码，请使用 HTTPS 访问");
+        return;
+      }
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: form.username,
           email: form.email,
-          password: form.password,
           displayName: form.displayName,
           next,
+          ...encrypted,
         }),
       });
       const data = await res.json().catch(() => null);

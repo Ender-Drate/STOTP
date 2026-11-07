@@ -89,6 +89,7 @@ real_ip_recursive on;
 | `AUTH_ADMIN_EMAIL` | `admin@localhost` | 管理员邮箱 |
 | `AUTH_ADMIN_PASSWORD` | 见上 | 管理员初始密码 |
 | `AUTH_TRUST_PROXY` | `1` | 信任反向代理传来的 `X-Real-IP` / `X-Forwarded-For` / `CF-Connecting-IP`；应用直接暴露公网时设为 `0` |
+| `AUTH_REQUIRE_ENCRYPTED_PASSWORD` | `0` | 设为 `1` 时拒绝明文密码 API；浏览器始终使用 RSA 信封加密 |
 | `AUTH_DISPLAY_TZ` | `Asia/Hong_Kong` | 服务端页面显示时间使用的 IANA 时区；数据库仍保存 UTC |
 | `PORT` | `3100` | `npm run dev/start` 已固定 3100，可自行改脚本 |
 
@@ -300,6 +301,10 @@ GET {AUTH_PUBLIC_URL}/api/oauth/authorize
 - 授权码一次性、10 分钟过期，绑定 client / redirect_uri / PKCE。
 - Access Token 15 分钟（RS256 JWT），Refresh Token 30 天且每次刷新轮换。
 - Client Secret 只存 SHA-256；用户密码 scrypt + 随机盐。
+- 浏览器提交密码前使用服务端 RSA-OAEP 公钥做信封加密；服务端私钥
+  `data/password-key.json`（0600）解密后校验 scrypt。覆盖登录、注册、绑定、改密、关闭 TOTP。
+- RSA 信封加密是 HTTPS 之外的额外一层，不替代 TLS；`AUTH_REQUIRE_ENCRYPTED_PASSWORD=1`
+  可以拒绝明文密码 API（浏览器端始终加密）。
 - TOTP secret 与外部登录的 client_secret 存在 `data/auth.db`，请把数据库权限设为 600 并做好备份；
   外部登录只保存 Passkey 公钥，不保存私钥。
 - 登录/注册按 IP 限速；管理 API 校验同源 Origin；Cookie `HttpOnly` + `SameSite=Lax`，HTTPS 部署自动加 `Secure`。
@@ -330,6 +335,7 @@ TOTP / Passkey / 外部登录 / 图形验证码 / 风险控制：
 npm run e2e:totp
 npm run e2e:provider
 npm run e2e:captcha
+npm run e2e:encrypted
 npm run e2e:risk
 npm run e2e:sessions
 ```
