@@ -208,6 +208,17 @@ TLS 指纹无法由浏览器 JS 计算。若前置 WAF/CDN 提供，会读取
 `X-TLS-Fingerprint` / `X-JA3-Fingerprint` / `X-JA4-Fingerprint` / `X-JA3-Hash` / `X-SSL-JA3` 头；
 没有时显示未提供，不会伪造。
 
+### IP 观察 / 封禁
+
+拥有 `risk.manage` 权限的管理员可以在风险页维护 IP 规则：
+
+- **观察**：只记录，不拦截；
+- **封禁**：拦截新的密码登录、OTP、Passkey、第三方登录和注册；
+- 已有会话不会被踢出，需要单独撤销会话；
+- 规则按规范化 IP 保存，支持 IPv4/IPv6。
+
+封禁检查覆盖登录、OTP、Passkey、外部 OAuth2、绑定与注册入口。
+
 ## 权限等级（RBAC）
 
 管理台使用「权限等级 + 权限节点」，而不是固定的 admin/user 两档。
@@ -233,6 +244,7 @@ TLS 指纹无法由浏览器 JS 计算。若前置 WAF/CDN 提供，会读取
 | `stotp.manage` | 解绑他人的 STOTP 设备 |
 | `stats.view` | 查看统计 |
 | `audit.view` | 查看审计 |
+| `risk.manage` | 管理 IP 观察 / 封禁规则 |
 
 从旧版本升级时，已有的 `admin` 账号会自动迁移为 `superadmin`，其它账号迁移为 `user`；
 自定义权限等级保存在 `roles` 表，用户通过 `role_id` 关联。
@@ -319,7 +331,7 @@ npm run e2e:risk
 
 覆盖：TOTP 启用/登录/重放/关闭；外部 OAuth2 授权码回调、本地绑定、TOTP 二阶段绑定、已绑定复用、解绑；
 图形验证码触发/错误/正确/计数清除；统计与风险页面、最高管理员修改风控指标、普通用户拒绝修改；
-环境观测、72h IP 中文属地、TLS 指纹头、审计 CSV 导出。
+环境观测、72h IP 中文属地、TLS 指纹头、审计 CSV 导出；IP 观察/封禁规则与登录拦截。
 `e2e:captcha` 需要以 `AUTH_E2E=1` 启动 auth-center 才会返回测试用验证码文本；生产环境不要设置。
 Passkey 使用 Chromium virtual authenticator 做过注册 + 无密码登录实测（需要 HTTPS 域名或 localhost）。
 

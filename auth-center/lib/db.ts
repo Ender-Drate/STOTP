@@ -290,6 +290,16 @@ CREATE TABLE IF NOT EXISTS risk_observations (
   reasons TEXT
 );
 
+CREATE TABLE IF NOT EXISTS ip_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ip TEXT NOT NULL UNIQUE,
+  action TEXT NOT NULL DEFAULT 'watch',
+  reason TEXT,
+  created_by INTEGER,
+  created_at TEXT NOT NULL,
+  expires_at TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_passkeys_user ON passkeys(user_id);
 
 CREATE INDEX IF NOT EXISTS idx_tokens_client ON tokens(client_id);

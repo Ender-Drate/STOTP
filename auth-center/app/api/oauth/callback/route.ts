@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PUBLIC_URL, SESSION_TTL_SECONDS, STOTP_ENABLED } from "@/lib/config";
 import { audit, findUserById, getDb, nowIso } from "@/lib/db";
 import { clientIp } from "@/lib/http";
+import { isIpBlocked } from "@/lib/ip-rules";
 import { createChallenge } from "@/lib/login-challenge";
 import {
   consumeOAuthState, createLinkTicket, findProviderLink, getProvider, OAUTH_STATE_COOKIE,
@@ -81,6 +82,7 @@ async function exchangeCode(
 }
 
 export async function GET(req: NextRequest) {
+  if (isIpBlocked(clientIp(req))) return fail("当前 IP 已被限制，请联系管理员");
   const params = req.nextUrl.searchParams;
   const state = params.get("state") || "";
   const code = params.get("code") || "";

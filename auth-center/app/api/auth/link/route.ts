@@ -11,6 +11,7 @@ import {
 } from "@/lib/login-providers";
 import { createSession, sessionCookieOptions } from "@/lib/session";
 import { getBinding } from "@/lib/stotp-store";
+import { isIpBlocked } from "@/lib/ip-rules";
 import { publicUser } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -25,6 +26,7 @@ interface Body {
 export async function POST(req: NextRequest) {
   try {
     assertSameOrigin(req);
+    if (isIpBlocked(clientIp(req))) throw new HttpError(403, "ip_blocked", "当前 IP 已被限制");
     const body = await readJson<Body>(req);
     const ticket = (body.ticket || "").trim();
     const identifier = (body.username || "").trim();

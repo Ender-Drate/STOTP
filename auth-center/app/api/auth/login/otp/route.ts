@@ -17,6 +17,7 @@ import { createSession, sessionCookieOptions } from "@/lib/session";
 import { getBinding, touchBinding } from "@/lib/stotp-store";
 import { stotpConfigured, stotpLoginVerify, StotpError } from "@/lib/stotp";
 import { verifyTotp } from "@/lib/totp";
+import { isIpBlocked } from "@/lib/ip-rules";
 import { publicUser } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -51,6 +52,10 @@ export async function POST(req: NextRequest) {
     next = safeNextPath(body.next);
     const code = typeof body.code === "string" ? body.code.trim() : "";
     if (!ticket) throw new HttpError(401, "otp_expired", "验证会话已过期，请重新登录");
+    if (isIpBlocked(clientIp(req))) {
+      audit("ip_blocked", { ip: clientIp(req), detail: "otp" });
+      throw new HttpError(403, "ip_blocked", "当前 IP 已被限制，请联系管理员");
+    }
     if (!rateLimit(`otp:${clientIp(req)}`, 10, 300)) {
       throw new HttpError(429, "rate_limited", "尝试过于频繁，请稍后再试");
     }

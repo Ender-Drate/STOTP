@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PasswordInput } from "./PasswordInput";
 
 interface SetupData {
   secret: string;
@@ -102,9 +103,8 @@ export function TotpPanel({ enabled }: { enabled: boolean }) {
         <form onSubmit={disable} style={{ maxWidth: 360 }}>
           <div className="field">
             <label className="label" htmlFor="totp-password">当前密码</label>
-            <input id="totp-password" className="input" type="password"
-              autoComplete="current-password" value={password}
-              onChange={(e) => setPassword(e.target.value)} required />
+            <PasswordInput id="totp-password" value={password} onChange={setPassword}
+              autoComplete="current-password" required />
           </div>
           <div className="form-actions">
             <button className="btn btn-danger" disabled={busy}>

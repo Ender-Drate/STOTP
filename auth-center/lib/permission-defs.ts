@@ -9,6 +9,7 @@ export const PERMISSION_DEFS = [
   { key: "stotp.manage", label: "管理他人 STOTP 绑定", group: "STOTP" },
   { key: "stats.view", label: "查看统计", group: "系统" },
   { key: "audit.view", label: "查看审计", group: "系统" },
+  { key: "risk.manage", label: "管理 IP 观察/封禁", group: "系统" },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_DEFS)[number]["key"];

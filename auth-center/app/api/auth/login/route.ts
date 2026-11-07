@@ -17,6 +17,7 @@ import { createSession, sessionCookieOptions } from "@/lib/session";
 import { publicUser } from "@/lib/users";
 import { getBinding } from "@/lib/stotp-store";
 import { createChallenge } from "@/lib/login-challenge";
+import { isIpBlocked } from "@/lib/ip-rules";
 import { verifyCaptcha } from "@/lib/captcha";
 import {
   captchaRequiredFor, clearLoginFailures, getRiskSettings, loginFailureKey,
@@ -64,6 +65,10 @@ export async function POST(req: NextRequest) {
       throw new HttpError(429, "rate_limited", "尝试过于频繁，请 5 分钟后再试");
     }
     const ip = clientIp(req);
+    if (isIpBlocked(ip)) {
+      audit("ip_blocked", { ip, detail: identifier.slice(0, 40) });
+      throw new HttpError(403, "ip_blocked", "当前 IP 已被限制，请联系管理员");
+    }
     const candidate = findUserByUsername(identifier);
     // 同一个账号无论用用户名还是邮箱登录，共用失败计数
     const failureKey = loginFailureKey(ip, candidate ? `user:${candidate.id}` : `id:${identifier.toLowerCase()}`);
