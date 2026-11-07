@@ -15,7 +15,7 @@ export function UserActions({
 }: {
   userId: number;
   roleId: number;
-  status: "active" | "disabled";
+  status: "active" | "disabled" | "pending";
   isSelf: boolean;
   roles: RoleOption[];
   canAssignRoles: boolean;
@@ -80,6 +80,7 @@ export function UserActions({
       >
         <option value="active">正常</option>
         <option value="disabled">禁用</option>
+        {status === "pending" ? <option value="pending" disabled>待验证</option> : null}
       </select>
       {canDelete && !isSelf ? (
         <button type="button" className="btn btn-sm btn-danger"

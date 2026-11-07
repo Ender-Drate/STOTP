@@ -78,7 +78,7 @@ export default async function UsersPage({
                   </td>
                   <td>
                     <span className={`pill ${user.status === "active" ? "pill-green" : "pill-red"}`}>
-                      {user.status === "active" ? "正常" : "已禁用"}
+                      {user.status === "active" ? "正常" : user.status === "pending" ? "待验证" : "已禁用"}
                     </span>
                   </td>
                   <td className="muted small">{formatDateTime(user.created_at)}</td>

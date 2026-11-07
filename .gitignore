@@ -8,6 +8,9 @@ shots/
 .tmp/
 *.db
 *.sqlite3
+.env
+.env.*
+!.env.example
 
 # Android / Gradle (legacy client)
 android/.gradle/

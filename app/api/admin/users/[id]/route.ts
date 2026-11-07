@@ -58,6 +58,13 @@ export async function DELETE(
       ]) {
         db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(target.id);
       }
+      // 旧数据库可能还留有已移除的 STOTP 绑定表。
+      const legacyStotp = db.prepare(
+        "SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = 'stotp_bindings'"
+      ).get();
+      if (legacyStotp) {
+        db.prepare("DELETE FROM stotp_bindings WHERE user_id = ?").run(target.id);
+      }
       db.prepare("DELETE FROM users WHERE id = ?").run(target.id);
       db.exec("COMMIT");
     } catch (error) {
@@ -115,6 +122,9 @@ export async function PATCH(
     if (changingStatus) {
       if (!["active", "disabled"].includes(String(body.status))) {
         throw new HttpError(400, "invalid_request", "状态不合法");
+      }
+      if (target.status === "pending" && body.status === "active") {
+        throw new HttpError(400, "invalid_request", "待验证用户需要通过邮箱验证后才能启用");
       }
       status = String(body.status) as User["status"];
     }
