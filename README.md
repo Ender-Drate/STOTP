@@ -235,6 +235,7 @@ GitHub Token 端点默认返回 `application/x-www-form-urlencoded`，auth-cente
 风险页会显示：
 
 - **72 小时访问 IP**：IP、中文属地、次数、首次/最近、风险分、环境信号；
+  点击「详情」查看该 IP 的 TLS/JA3、UA、WebGL、平台、语言/时区、屏幕、CPU/内存、自动化信号与风险原因；
 - **最近访问观测**：渲染器/平台、评分、原因、TLS 指纹；
 - 中文属地由 `ip2region` 离线库解析，内网/回环单独标记；
 - 支持导出审计 CSV。
