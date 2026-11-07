@@ -81,7 +81,7 @@ function InstallPlugin_STOTPOAuth()
     $config = $zbp->Config('STOTPOAuth');
     if (!isset($config->auto_register)) {
         $config->auto_register = 1;
-        $config->allow_email_link = 1;
+        $config->allow_email_link = 0;
         $config->default_level = 5;
         $config->login_redirect = '';
         $config->button_text = '使用 STOTP 登录';

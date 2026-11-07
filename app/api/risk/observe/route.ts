@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/session";
 import { getDb, nowIso } from "@/lib/db";
-import { clientIp, errorResponse, HttpError, rateLimit, readJson } from "@/lib/http";
+import {
+  assertSameOrigin, clientIp, errorResponse, HttpError, rateLimit, readJson,
+} from "@/lib/http";
 import { evaluateSignals, readTlsFingerprint, type ClientSignals } from "@/lib/risk-signals";
 import { getRiskSettings, riskLevel } from "@/lib/risk";
 
@@ -14,8 +16,10 @@ interface Body {
 
 export async function POST(req: NextRequest) {
   try {
+    assertSameOrigin(req);
     const ip = clientIp(req);
-    if (!rateLimit(`risk-observe:${ip}`, 120, 60)) {
+    if (!rateLimit(`risk-observe:${ip}`, 30, 60)
+      || !rateLimit("risk-observe:global", 600, 60)) {
       throw new HttpError(429, "rate_limited", "请求过于频繁");
     }
     const body = await readJson<Body>(req);
@@ -26,14 +30,17 @@ export async function POST(req: NextRequest) {
     const tlsFingerprint = readTlsFingerprint(req.headers);
     const evaluation = evaluateSignals(signals, userAgent, tlsFingerprint);
     const user = await currentUser();
-    const path = typeof body.path === "string" ? body.path.slice(0, 200) : "";
+    // 未登录时客户端信号不可信，最多只能到 medium，不能把任意 IP 刷成 critical。
+    const score = user ? evaluation.score : Math.min(evaluation.score, 55);
+    const rawPath = typeof body.path === "string" ? body.path.slice(0, 200) : "";
+    const path = rawPath.startsWith("/") && !rawPath.includes("\\") ? rawPath : "";
     const db = getDb();
     db.prepare(
       `INSERT INTO risk_observations(ts, ip, user_id, path, user_agent, tls_fingerprint,
          signals, score, reasons)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(nowIso(), ip, user?.id ?? null, path, userAgent, tlsFingerprint,
-      serialized, evaluation.score, JSON.stringify(evaluation.reasons));
+      serialized, score, JSON.stringify(evaluation.reasons));
 
     // 避免观测表无限增长
     const cutoff = new Date(Date.now() - getRiskSettings().auditRetentionDays * 86400_000).toISOString();
@@ -41,8 +48,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      score: evaluation.score,
-      level: riskLevel(evaluation.score),
+      score,
+      level: riskLevel(score),
     });
   } catch (error) {
     return errorResponse(error);

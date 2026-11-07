@@ -17,7 +17,9 @@ interface ExportRow {
 }
 
 function cell(value: unknown): string {
-  const text = value === null || value === undefined ? "" : String(value);
+  let text = value === null || value === undefined ? "" : String(value);
+  // 防止 Excel/Sheets 公式注入：= + - @ 以及控制字符开头一律按文本处理
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   return `"${text.replace(/"/g, '""')}"`;
 }
 

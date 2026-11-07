@@ -31,6 +31,7 @@ export interface User {
   status: UserStatus;
   permissions: string;
   totp_secret: string | null;
+  email_verified: number;
   created_at: string;
   last_login_at: string | null;
 }
@@ -93,6 +94,7 @@ CREATE TABLE IF NOT EXISTS users (
   status TEXT NOT NULL DEFAULT 'active',
   permissions TEXT NOT NULL DEFAULT '[]',
   totp_secret TEXT,
+  email_verified INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   last_login_at TEXT
 );
@@ -398,6 +400,9 @@ export function getDb(): DatabaseSync {
   const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
   if (!userColumns.some((column) => column.name === "role_id")) {
     db.exec("ALTER TABLE users ADD COLUMN role_id INTEGER");
+  }
+  if (!userColumns.some((column) => column.name === "email_verified")) {
+    db.exec("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0");
   }
   const challengeColumns = db.prepare("PRAGMA table_info(login_challenges)")
     .all() as Array<{ name: string }>;

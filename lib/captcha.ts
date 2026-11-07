@@ -12,19 +12,19 @@ function escapeXml(value: string): string {
   }[char] || char));
 }
 
-function randomCode(length = 4): string {
+function randomCode(length = 5): string {
   const bytes = randomBytes(length);
   return Array.from(bytes, (byte) => ALPHABET[byte % ALPHABET.length]).join("");
 }
 
 function captchaSvg(code: string): string {
   const chars = code.split("").map((char, index) => {
-    const x = 22 + index * 30 + Math.floor(Math.random() * 5);
+    const x = 20 + index * 26 + Math.floor(Math.random() * 5);
     const y = 32 + Math.floor(Math.random() * 5);
     const rotate = -18 + Math.floor(Math.random() * 36);
     const color = ["#1d1d1f", "#0071e3", "#5e5ce6", "#1f6f43"][Math.floor(Math.random() * 4)];
     return `<text x="${x}" y="${y}" transform="rotate(${rotate} ${x} ${y})"
-      font-family="Georgia, 'Times New Roman', serif" font-size="27" font-weight="700"
+      font-family="Georgia, 'Times New Roman', serif" font-size="25" font-weight="700"
       fill="${color}" opacity="0.92">${escapeXml(char)}</text>`;
   }).join("");
 
@@ -80,9 +80,11 @@ export function verifyCaptcha(ticket: string, code: string, ip: string): boolean
     code_hash: string; ip: string; expires_at: number; used: number;
   } | undefined;
   if (!row || row.used || row.expires_at < nowSec() || row.ip !== ip) return false;
-  getDb().prepare("UPDATE captcha_challenges SET used = 1 WHERE token_hash = ?")
-    .run(sha256(ticket));
-  return safeEqual(row.code_hash, sha256(code.trim().toUpperCase()));
+  if (!safeEqual(row.code_hash, sha256(code.trim().toUpperCase()))) return false;
+  const result = getDb().prepare(
+    "UPDATE captcha_challenges SET used = 1 WHERE token_hash = ? AND used = 0"
+  ).run(sha256(ticket));
+  return Number(result.changes) > 0;
 }
 
 export { captchaSvg };

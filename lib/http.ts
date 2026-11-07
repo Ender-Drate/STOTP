@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PUBLIC_URL, TRUST_PROXY } from "./config";
-import { firstPublicIp } from "./ip";
+import { normalizeIp } from "./ip";
 
 export class HttpError extends Error {
   status: number;
@@ -62,25 +62,36 @@ export async function readForm(req: NextRequest): Promise<Record<string, string>
 /** 仅允许站内绝对路径，防止 open redirect。 */
 export function safeNextPath(value: unknown, fallback = "/dashboard"): string {
   const raw = Array.isArray(value) ? value[0] : value;
-  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) {
+  if (
+    typeof raw !== "string" ||
+    !raw.startsWith("/") ||
+    raw.startsWith("//") ||
+    raw.includes("\\") ||
+    /%5c|%2f/i.test(raw) ||
+    /[\u0000-\u001f\u007f]/.test(raw)
+  ) {
     return fallback;
   }
-  return raw;
+  try {
+    const base = new URL(PUBLIC_URL);
+    const target = new URL(raw, base);
+    if (target.origin !== base.origin) return fallback;
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return fallback;
+  }
 }
 
+/**
+ * 只信任反向代理自己覆盖的 X-Real-IP。
+ *
+ * 绝不读取 CF-Connecting-IP / Forwarded / X-Forwarded-For：
+ * 这些头客户端可以直接伪造，会绕过 IP 限速、验证码和 IP 封禁。
+ */
 export function clientIp(req: NextRequest): string {
   if (!TRUST_PROXY) return "127.0.0.1";
-  const forwarded = req.headers.get("x-forwarded-for");
-  const forwardedEntries = forwarded ? forwarded.split(",") : [];
-  const forwardedHeader = req.headers.get("forwarded") || "";
-  const forwardedFor = Array.from(forwardedHeader.matchAll(/for=([^;]+)/gi))
-    .map((match) => match[1]);
-  return firstPublicIp([
-    req.headers.get("cf-connecting-ip"),
-    req.headers.get("x-real-ip"),
-    ...forwardedEntries,
-    ...forwardedFor,
-  ]);
+  const real = normalizeIp(req.headers.get("x-real-ip"));
+  return real || "127.0.0.1";
 }
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
@@ -111,9 +122,7 @@ export function assertSameOrigin(req: NextRequest) {
   const allowed = new Set<string>();
   const host = req.headers.get("host");
   if (host) allowed.add(host);
-  // nginx 可能没把 Host 改成对外域名；X-Forwarded-Host 和 AUTH_PUBLIC_URL 都可作为可信来源
-  const forwardedHost = req.headers.get("x-forwarded-host");
-  if (forwardedHost) allowed.add(forwardedHost.split(",")[0].trim());
+  // 不信任客户端可伪造的 X-Forwarded-Host；nginx 已把 Host 设为对外域名。
   try {
     allowed.add(new URL(PUBLIC_URL).host);
   } catch {

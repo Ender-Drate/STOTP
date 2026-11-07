@@ -57,10 +57,12 @@ export async function POST(req: NextRequest) {
     const pass = decryptPasswordField(
       body.password, body.password_enc, body.password_key,
     );
-    if (pass.length < 8) throw new HttpError(400, "invalid_request", "密码至少 8 位");
+    if (pass.length < 10) throw new HttpError(400, "invalid_request", "密码至少 10 位");
     if (pass.length > 128) throw new HttpError(400, "invalid_request", "密码过长");
+    const passwordHash = hashPassword(pass);
     if (findUserByUsername(name) || findUserByUsername(mail)) {
-      throw new HttpError(409, "already_exists", "用户名或邮箱已被占用");
+      // 不明确区分用户名/邮箱占用，降低账号枚举质量
+      throw new HttpError(400, "invalid_request", "注册信息不可用，请更换用户名或邮箱");
     }
     const now = nowIso();
     const userRole = getRoleByKey("user");
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
       `INSERT INTO users(username, email, password_hash, display_name, role, role_id,
          status, permissions, created_at)
        VALUES (?,?,?,?, 'user', ?, 'active', ?, ?)`
-    ).run(name, mail, hashPassword(pass),
+    ).run(name, mail, passwordHash,
       typeof body.displayName === "string" && body.displayName.trim()
         ? body.displayName.trim().slice(0, 40) : name,
       userRole.id, userRole.permissions, now);

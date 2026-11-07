@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE } from "@/lib/config";
-import { destroySession } from "@/lib/session";
+import { assertSameOrigin, errorResponse } from "@/lib/http";
+import { destroySession, sessionCookieOptions } from "@/lib/session";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (token) destroySession(token);
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(SESSION_COOKIE, "", { path: "/", maxAge: 0 });
-  return res;
+  try {
+    assertSameOrigin(req);
+    const token = req.cookies.get(SESSION_COOKIE)?.value;
+    if (token) destroySession(token);
+    const res = NextResponse.json({ ok: true });
+    res.cookies.set({ ...sessionCookieOptions(0), value: "" });
+    return res;
+  } catch (error) {
+    return errorResponse(error);
+  }
 }

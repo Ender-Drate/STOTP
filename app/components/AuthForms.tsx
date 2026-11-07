@@ -266,7 +266,7 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
         <PasswordInput
           id="newPassword" name="password" value={form.password}
           onChange={(value) => update("password", value)} autoComplete="new-password"
-          placeholder="至少 8 位" required
+          placeholder="至少 10 位" required
         />
       </div>
       <div className="field">

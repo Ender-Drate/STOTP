@@ -88,8 +88,8 @@ real_ip_recursive on;
 | `AUTH_ADMIN_USERNAME` | `admin` | 首次启动创建的管理员用户名 |
 | `AUTH_ADMIN_EMAIL` | `admin@localhost` | 管理员邮箱 |
 | `AUTH_ADMIN_PASSWORD` | 见上 | 管理员初始密码 |
-| `AUTH_TRUST_PROXY` | `1` | 信任反向代理传来的 `X-Real-IP` / `X-Forwarded-For` / `CF-Connecting-IP`；应用直接暴露公网时设为 `0` |
-| `AUTH_REQUIRE_ENCRYPTED_PASSWORD` | `0` | 设为 `1` 时拒绝明文密码 API；浏览器始终使用 RSA 信封加密 |
+| `AUTH_TRUST_PROXY` | `1` | 只信任反向代理覆盖后的 `X-Real-IP`；应用直接暴露公网时设为 `0` |
+| `AUTH_REQUIRE_ENCRYPTED_PASSWORD` | 生产 HTTPS 默认 `1` | 设为 `0` 可显式允许明文密码 API；浏览器始终使用 RSA 信封加密 |
 | `AUTH_DISPLAY_TZ` | `Asia/Hong_Kong` | 服务端页面显示时间使用的 IANA 时区；数据库仍保存 UTC |
 | `PORT` | `3100` | `npm run dev/start` 已固定 3100，可自行改脚本 |
 
@@ -97,6 +97,8 @@ real_ip_recursive on;
 
 - `data/auth.db`：用户、OAuth 应用、授权码、令牌、会话、授权记录、审计。
 - `data/oidc-keys.json`：RSA 私钥（0600），用于 RS256 签名；**不要提交或泄露**。
+- `data/password-key.json`：RSA 密码信封私钥（0600）。
+- `data/avatar-secret`：头像签名密钥（0600）。
 
 ### 反向代理真实 IP
 
@@ -110,6 +112,8 @@ location / {
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $remote_addr;   # 覆盖，不要追加不可信 XFF
+    proxy_set_header CF-Connecting-IP $remote_addr;  # 覆盖，避免上游误信
+    proxy_set_header Forwarded "";
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-Host $host;
 }
@@ -117,7 +121,7 @@ location / {
 
 完整示例见 [`docs/nginx-auth-center.conf`](docs/nginx-auth-center.conf)。
 
-应用会按 `CF-Connecting-IP` → `X-Real-IP` → `X-Forwarded-For` / `Forwarded` 的顺序取第一个公网地址。
+应用只读取 nginx 覆盖后的 `X-Real-IP`；`CF-Connecting-IP`、`X-Forwarded-For`、`Forwarded` 都不参与身份判断。
 修改 nginx 后执行 `nginx -t && systemctl reload nginx`；历史审计里的 `127.0.0.1` 不会自动回填，新登录开始记录真实 IP。
 
 ## 登录方式
@@ -301,10 +305,12 @@ GET {AUTH_PUBLIC_URL}/api/oauth/authorize
 - 授权码一次性、10 分钟过期，绑定 client / redirect_uri / PKCE。
 - Access Token 15 分钟（RS256 JWT），Refresh Token 30 天且每次刷新轮换。
 - Client Secret 只存 SHA-256；用户密码 scrypt + 随机盐。
+- 注册/改邮箱不会自动验证邮箱，OIDC `email_verified` 只在邮箱验证通过后为 `true`；
+  下游应用不要仅凭邮箱自动关联账号。
 - 浏览器提交密码前使用服务端 RSA-OAEP 公钥做信封加密；服务端私钥
   `data/password-key.json`（0600）解密后校验 scrypt。覆盖登录、注册、绑定、改密、关闭 TOTP。
-- RSA 信封加密是 HTTPS 之外的额外一层，不替代 TLS；`AUTH_REQUIRE_ENCRYPTED_PASSWORD=1`
-  可以拒绝明文密码 API（浏览器端始终加密）。
+- RSA 信封加密是 HTTPS 之外的额外一层，不替代 TLS；生产 HTTPS 默认拒绝明文密码 API，
+  可用 `AUTH_REQUIRE_ENCRYPTED_PASSWORD=0` 显式放行（不推荐）。
 - TOTP secret 与外部登录的 client_secret 存在 `data/auth.db`，请把数据库权限设为 600 并做好备份；
   外部登录只保存 Passkey 公钥，不保存私钥。
 - 登录/注册按 IP 限速；管理 API 校验同源 Origin；Cookie `HttpOnly` + `SameSite=Lax`，HTTPS 部署自动加 `Secure`。

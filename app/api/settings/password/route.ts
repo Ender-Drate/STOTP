@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     if (!verifyPassword(current, user.password_hash)) {
       throw new HttpError(400, "invalid_credentials", "当前密码不正确");
     }
-    if (next.length < 8) throw new HttpError(400, "invalid_request", "新密码至少 8 位");
+    if (next.length < 10) throw new HttpError(400, "invalid_request", "新密码至少 10 位");
     getDb().prepare("UPDATE users SET password_hash = ? WHERE id = ?")
       .run(hashPassword(next), user.id);
     // 修改密码后使其它会话失效，保留当前会话

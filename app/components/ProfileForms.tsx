@@ -147,7 +147,7 @@ export function ProfileForms({ user }: Props) {
           <label className="label">新密码</label>
           <PasswordInput id="profile-new-password" value={password.next}
             onChange={(value) => setPassword({ ...password, next: value })}
-            autoComplete="new-password" placeholder="至少 8 位" required />
+            autoComplete="new-password" placeholder="至少 10 位" required />
         </div>
         <div className="field">
           <label className="label">确认新密码</label>

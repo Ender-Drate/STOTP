@@ -129,7 +129,7 @@ Email Verified: email_verified
 ## 全局设置
 
 - 自动注册
-- 已验证邮箱自动绑定
+- 已验证邮箱自动绑定（默认关闭）
 - 默认用户等级
 - 登录后跳转（留空为 Z-Blog 后台）
 
@@ -140,7 +140,7 @@ Email Verified: email_verified
 - Token 只在服务端交换，不下发浏览器。
 - 错误信息 HTML 转义，不输出 token/secret。
 - Client Secret 存在 Z-Blog 插件配置文件（通常在 `zb_users/data/plugin/`），请限制文件权限。
-- 自动绑定只接受已验证邮箱；不支持 `email_verified` 的 Provider 需要管理员显式勾选「信任邮箱」。
+- 自动绑定默认关闭；开启后只接受严格 `email_verified === true`（或管理员显式勾选「信任邮箱」的 Provider），避免邮箱关联接管。
 - 公共客户端可以留空 Secret，但必须开启 PKCE。
 
 ## 常见问题
