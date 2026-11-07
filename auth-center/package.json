@@ -17,6 +17,8 @@
     "e2e:stotp": "node scripts/e2e-stotp.mjs",
     "e2e:rbac": "node scripts/e2e-rbac.mjs",
     "e2e:totp": "node scripts/e2e-totp.mjs",
+    "e2e:captcha": "node scripts/e2e-captcha.mjs",
+    "e2e:risk": "node scripts/e2e-risk.mjs",
     "e2e:provider": "node scripts/e2e-provider.mjs"
   },
   "dependencies": {
@@ -25,7 +27,8 @@
     "next": "16.4.5",
     "qrcode": "^1.5.4",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/node": "^24",

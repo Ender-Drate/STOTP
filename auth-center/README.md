@@ -114,8 +114,9 @@ location / {
 - 统一回调地址：`{AUTH_PUBLIC_URL}/api/oauth/callback`
 
 该服务 UserInfo 必须返回 `sub`（或 `id`）。未绑定的第三方账户首次登录会跳转到本地账户绑定页，
-需要使用本地用户名/密码（启用 TOTP 时还需动态码）确认一次；绑定后再次登录直接复用本地账号。
-不再按邮箱自动创建或接管账号。
+需要使用本地用户名/密码确认一次；绑定页提供「注册本地账户」入口。若该账号启用 TOTP，
+密码通过后会进入独立的动态码页面，验证通过才写入绑定并建立会话。
+绑定后再次登录直接复用本地账号，不再按邮箱自动创建或接管账号。
 
 ### GitHub OAuth 配置示例
 
@@ -143,14 +144,33 @@ GitHub Token 端点默认返回 `application/x-www-form-urlencoded`，auth-cente
 - 只启用 TOTP：密码 + TOTP。
 - 只启用 Passkey：可直接 Passkey 登录；密码仍可用。
 - 两者都启用：密码登录走 TOTP，Passkey 登录独立可用。
-- 外部登录服务：登录页显示按钮，走 OAuth2 回调。
+- 外部登录服务：登录页显示按钮，走 OAuth2 回调；已绑定本地账号时仍按该账号的 TOTP/STOTP 策略验证。
+
+### 登录失败图形验证码
+
+同一 IP + 账号在计数窗口内密码失败后，下一次登录必须输入图形验证码：
+
+- 验证码由服务端生成 PNG，带随机旋转、干扰线和噪点；
+- 5 分钟有效、一次性、绑定 IP；
+- 阈值、失败窗口可在「风险控制」中由最高管理员调整；
+- 验证成功或密码正确后清除失败计数。
+
+## 统计与风险控制
+
+「开发」分组新增两个页面：
+
+- **统计信息**：CPU、内存、磁盘、网络收发速率、认证 QPS、负载、运行时间、进程内存。
+- **风险控制**：24h 登录失败、独立 IP、高风险 IP、验证码阈值、最近审计与 IP 风险估值。
+
+风控指标仅最高管理员可修改，包括验证码触发阈值、失败计数窗口、高中风险阈值、审计保留天数。
+审计页会结合 `login_failed`、TOTP/STOTP 拒绝记录给出 IP 风险分。
 
 ## 权限等级（RBAC）
 
 管理台使用「权限等级 + 权限节点」，而不是固定的 admin/user 两档。
 
 - **最高管理员（superadmin）**：拥有全部权限，且是唯一可以进入「权限」页创建/编辑权限等级的角色。
-- **管理员（admin）**：系统内置的日常管理等级，不能修改权限等级。
+- **管理员（admin）**：系统内置的日常管理等级，可查看统计/审计，可编辑权限节点。
 - **普通用户（user）**：默认只有「绑定 STOTP」权限。
 - 最高管理员可以在「权限」页新建自定义等级，勾选该等级拥有的权限节点；自定义等级可以编辑/删除，
   `admin` / `user` 等内置等级也可以编辑权限节点，只有 `superadmin` 本身不可改。
@@ -245,14 +265,18 @@ npm run e2e:stotp
 覆盖：无绑定密码登录、绑定错误码/正确码、登录 `otp_required`、错误 OTP、正确 OTP、ticket 单次使用、
 assertion 篡改/错误 aud/过期、重复绑定、用户解绑、管理员解绑、STOTP 不可达 fail closed。
 
-TOTP / Passkey / 外部登录：
+TOTP / Passkey / 外部登录 / 图形验证码 / 风险控制：
 
 ```bash
 npm run e2e:totp
 npm run e2e:provider
+npm run e2e:captcha
+npm run e2e:risk
 ```
 
-覆盖：TOTP 启用/登录/重放/关闭、外部 OAuth2 授权码回调/账号创建/复用/未验证邮箱拒绝/图标展示。
+覆盖：TOTP 启用/登录/重放/关闭；外部 OAuth2 授权码回调、本地绑定、TOTP 二阶段绑定、已绑定复用、解绑；
+图形验证码触发/错误/正确/计数清除；统计与风险页面、最高管理员修改风控指标、普通用户拒绝修改。
+`e2e:captcha` 需要以 `AUTH_E2E=1` 启动 auth-center 才会返回测试用验证码文本；生产环境不要设置。
 Passkey 使用 Chromium virtual authenticator 做过注册 + 无密码登录实测（需要 HTTPS 域名或 localhost）。
 
 权限等级：
@@ -261,7 +285,7 @@ Passkey 使用 Chromium virtual authenticator 做过注册 + 无密码登录实�
 npm run e2e:rbac
 ```
 
-覆盖：自定义权限等级、节点校验、系统等级只读、角色分配、页面/API 权限、禁用/启用、非最高管理员限制。
+覆盖：自定义权限等级、节点校验、superadmin 不可修改、角色分配、页面/API 权限、禁用/启用、非最高管理员限制。
 
 ## 截图
 
@@ -293,8 +317,18 @@ npm run e2e:rbac
 | --- | --- |
 | ![link](docs/screenshots/link-account.png) | ![docs](docs/screenshots/docs-v2.png) |
 
+| 统计信息 | 风险控制 |
+| --- | --- |
+| ![stats](docs/screenshots/stats.png) | ![risk](docs/screenshots/risk.png) |
+
+| 图形验证码 | 移动端 |
+| --- | --- |
+| ![captcha](docs/screenshots/captcha.png) | ![mobile](docs/screenshots/mobile-dashboard.png) |
+
 ## 已知限制
 
-- 未做邮箱验证、找回密码、Passkey、第三方账号绑定；STOTP 两步验证是可选项，默认不强制。
+- 统计页的 QPS 是认证事件速率，不是全站 HTTP 请求计数；网络指标依赖 Linux `/proc/net/dev`。
+- 图形验证码为服务端 PNG，仍属于传统图形验证码，不是无感风控。
 - 单节点 SQLite；多实例需替换 `lib/db.ts` 为共享数据库。
-- 权限节点目前由管理员在数据库层面维护，管理台只展示；后续可加权限编辑。
+- Passkey 需要 HTTPS 域名或 localhost；`AUTH_PUBLIC_URL` 变更会使已注册 Passkey 失效。
+- 外部登录 `client_secret` 存在 `data/auth.db`，请限制数据库文件权限。

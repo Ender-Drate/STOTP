@@ -249,9 +249,32 @@ CREATE TABLE IF NOT EXISTS provider_link_tickets (
   email TEXT,
   next TEXT NOT NULL,
   ip TEXT NOT NULL,
+  user_id INTEGER,
   expires_at INTEGER NOT NULL,
   used INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS login_failures (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL DEFAULT 0,
+  first_at INTEGER NOT NULL,
+  last_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS captcha_challenges (
+  token_hash TEXT PRIMARY KEY,
+  code_hash TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS risk_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_passkeys_user ON passkeys(user_id);
@@ -353,6 +376,11 @@ export function getDb(): DatabaseSync {
     .all() as Array<{ name: string }>;
   if (!challengeColumns.some((column) => column.name === "method")) {
     db.exec("ALTER TABLE login_challenges ADD COLUMN method TEXT NOT NULL DEFAULT 'stotp'");
+  }
+  const linkTicketColumns = db.prepare("PRAGMA table_info(provider_link_tickets)")
+    .all() as Array<{ name: string }>;
+  if (!linkTicketColumns.some((column) => column.name === "user_id")) {
+    db.exec("ALTER TABLE provider_link_tickets ADD COLUMN user_id INTEGER");
   }
   ensureRoles(db);
   ensureAdmin(db);

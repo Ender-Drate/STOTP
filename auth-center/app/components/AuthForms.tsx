@@ -16,6 +16,21 @@ export function LoginForm({ next, initialError = "" }: {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
+  const [captcha, setCaptcha] = useState<{ ticket: string; image: string } | null>(null);
+  const [captchaCode, setCaptchaCode] = useState("");
+
+  async function refreshCaptcha() {
+    try {
+      const res = await fetch("/api/auth/captcha", { cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      if (data?.ticket && data?.image) {
+        setCaptcha({ ticket: data.ticket, image: data.image });
+        setCaptchaCode("");
+      }
+    } catch {
+      // 图形验证码加载失败时保留原错误提示
+    }
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -25,12 +40,21 @@ export function LoginForm({ next, initialError = "" }: {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: identifier, password, remember, next }),
+        body: JSON.stringify({
+          username: identifier, password, remember, next,
+          captchaTicket: captcha?.ticket || "",
+          captchaCode,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (data?.otp_required && data?.ticket) {
         const query = new URLSearchParams({ ticket: String(data.ticket), next });
         window.location.assign(`/login/otp?${query.toString()}`);
+        return;
+      }
+      if (data?.captcha_required) {
+        await refreshCaptcha();
+        setError(errorOf(data, "请输入图形验证码"));
         return;
       }
       if (!res.ok) {
@@ -66,6 +90,23 @@ export function LoginForm({ next, initialError = "" }: {
           placeholder="密码" required
         />
       </div>
+      {captcha ? (
+        <div className="captcha-box">
+          <div className="spread" style={{ marginBottom: 6 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={captcha.image} alt="图形验证码" width={160} height={52} />
+            <button type="button" className="btn btn-sm btn-ghost" onClick={refreshCaptcha}>
+              换一张
+            </button>
+          </div>
+          <label className="label" htmlFor="captcha-code">图形验证码</label>
+          <input
+            id="captcha-code" className="input mono" value={captchaCode}
+            onChange={(e) => setCaptchaCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 4))}
+            autoComplete="off" placeholder="输入图中字符" required
+          />
+        </div>
+      ) : null}
       <label className="row" style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 6 }}>
         <input type="checkbox" name="remember" value="1" checked={remember}
           onChange={(e) => setRemember(e.target.checked)} />

@@ -4,6 +4,7 @@ import { BRAND } from "@/lib/config";
 import { currentUser } from "@/lib/session";
 import { SidebarNav } from "@/app/components/SidebarNav";
 import { LogoutButton } from "@/app/components/LogoutButton";
+import { ToastProvider } from "@/app/components/Feedback";
 import { isSuperAdmin, permissionsOf, roleNameOf } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const name = user.display_name || user.username;
   return (
-    <div className="app">
+    <ToastProvider>
+      <div className="app">
       <aside className="sidebar">
         <Link href="/dashboard" className="brand" style={{ color: "inherit" }}>
           <img className="brand-mark" src="/icon.svg" alt="" width={30} height={30} />
@@ -40,7 +42,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <LogoutButton />
         </div>
       </aside>
-      <main className="main">{children}</main>
-    </div>
+        <main className="main">{children}</main>
+      </div>
+    </ToastProvider>
   );
 }

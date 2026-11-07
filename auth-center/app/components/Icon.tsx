@@ -92,6 +92,18 @@ const paths: Record<string, ReactNode> = {
       <path d="m9 12 2 2 4-4" />
     </>
   ),
+  stats: (
+    <>
+      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+      <path d="M4 7l6-4 6 6 6-5" />
+    </>
+  ),
+  risk: (
+    <>
+      <path d="M12 3.2 21 19H3L12 3.2Z" />
+      <path d="M12 9v4.5M12 17h.01" />
+    </>
+  ),
 };
 
 export function Icon({ name, size = 16 }: { name: keyof typeof paths | string; size?: number }) {

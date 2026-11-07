@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 export function LinkAccountForm({ ticket, next }: { ticket: string; next: string }) {
-  const [form, setForm] = useState({ username: "", password: "", code: "" });
+  const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -18,6 +18,14 @@ export function LinkAccountForm({ ticket, next }: { ticket: string; next: string
         body: JSON.stringify({ ticket, ...form, next }),
       });
       const data = await res.json().catch(() => null);
+      if (data?.otp_required) {
+        const query = new URLSearchParams({
+          ticket: String(data.ticket || ticket),
+          next: String(data.next || next),
+        });
+        window.location.assign(`/login/link/otp?${query.toString()}`);
+        return;
+      }
       if (!res.ok) {
         setError(data?.error?.message || "绑定失败");
         return;
@@ -44,13 +52,6 @@ export function LinkAccountForm({ ticket, next }: { ticket: string; next: string
         <input id="link-password" className="input" type="password"
           autoComplete="current-password" value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-      </div>
-      <div className="field">
-        <label className="label" htmlFor="link-code">TOTP 验证码（如已启用）</label>
-        <input id="link-code" className="input otp-input" inputMode="numeric"
-          autoComplete="one-time-code" maxLength={6} value={form.code}
-          onChange={(e) => setForm({ ...form, code: e.target.value.replace(/\D/g, "").slice(0, 6) })}
-          placeholder="000000" />
       </div>
       <button className="btn btn-primary" style={{ width: "100%", height: 42, marginTop: 10 }}
         disabled={busy}>
