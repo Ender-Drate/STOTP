@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { currentUser } from "@/lib/session";
 import { hasPermission, isSuperAdmin } from "@/lib/permissions";
 import { getDb } from "@/lib/db";
-import { getRiskSettings, ipRiskScores, RISK_LABELS, riskLevel, type RiskSettings } from "@/lib/risk";
+import { getRiskSettings, getRecentObservations, getVisitIps, ipRiskScores, RISK_LABELS, riskLevel, type RiskSettings } from "@/lib/risk";
 import { firstPublicIp } from "@/lib/ip";
 import { formatDateTime } from "@/lib/datetime";
 import { RiskSettingsForm } from "@/app/components/RiskSettingsForm";
@@ -45,6 +45,8 @@ export default async function RiskPage() {
 
   const settings = getRiskSettings();
   const scores = ipRiskScores();
+  const visits = getVisitIps(settings.visitWindowHours);
+  const observations = getRecentObservations(30);
   const requestHeaders = await headers();
   const xRealIp = requestHeaders.get("x-real-ip") || "-";
   const xForwardedFor = requestHeaders.get("x-forwarded-for") || "-";
@@ -80,6 +82,7 @@ export default async function RiskPage() {
         <span className={`pill ${highRisk ? "pill-red" : "pill-green"}`}>
           {highRisk ? `${highRisk} 个高风险 IP` : "无高风险 IP"}
         </span>
+        <a className="btn btn-ghost btn-sm" href="/api/admin/audit/export">导出审计 CSV</a>
       </div>
 
       <div className="grid grid-4">
@@ -135,6 +138,97 @@ export default async function RiskPage() {
             代理头为空或只包含回环地址，请检查 nginx 是否传递 X-Real-IP / X-Forwarded-For。
           </p>
         ) : null}
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div className="card-title">{settings.visitWindowHours} 小时访问 IP</div>
+          <span className="pill">{visits.length} 个</span>
+        </div>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>IP</th>
+                <th>属地</th>
+                <th>次数</th>
+                <th>首次</th>
+                <th>最近</th>
+                <th>风险</th>
+                <th>环境信号</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visits.map((item) => (
+                <tr key={item.ip}>
+                  <td className="mono small">{item.ip}</td>
+                  <td>{item.location}</td>
+                  <td>{item.count}</td>
+                  <td className="mono small">{formatDateTime(item.first)}</td>
+                  <td className="mono small">{formatDateTime(item.last)}</td>
+                  <td><span className={`pill ${riskTone(item.level)}`}>{LEVEL_TEXT[item.level]} · {item.score}</span></td>
+                  <td className="small muted" style={{ maxWidth: 360 }}>
+                    {item.reasons.length ? item.reasons.slice(0, 3).join("；") : "无异常"}
+                    {item.tlsFingerprint ? (
+                      <span title={item.tlsFingerprint}> · TLS {item.tlsFingerprint.slice(0, 18)}</span>
+                    ) : ""}
+                  </td>
+                </tr>
+              ))}
+              {visits.length === 0 ? (
+                <tr><td colSpan={7} className="muted">暂无访问记录</td></tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div className="card-title">最近访问观测</div>
+          <span className="pill">最近 30 条</span>
+        </div>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>IP</th>
+                <th>属地</th>
+                <th>页面</th>
+                <th>渲染器 / 平台</th>
+                <th>风险</th>
+                <th>原因 / TLS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {observations.map((item) => (
+                <tr key={item.id}>
+                  <td className="mono small">{formatDateTime(item.ts)}</td>
+                  <td className="mono small">{item.ip}</td>
+                  <td>{item.location}</td>
+                  <td className="mono small">{item.path || "-"}</td>
+                  <td className="small">
+                    <div className="truncate" style={{ maxWidth: 240 }}>{item.renderer}</div>
+                    <div className="muted">{item.platform}</div>
+                  </td>
+                  <td><span className={`pill ${riskTone(riskLevel(item.score, settings))}`}>
+                    {LEVEL_TEXT[riskLevel(item.score, settings)]} · {item.score}
+                  </span></td>
+                  <td className="small muted" style={{ maxWidth: 320 }}>
+                    {item.reasons.length ? item.reasons.slice(0, 2).join("；") : "无异常"}
+                    {item.tlsFingerprint ? (
+                      <span title={item.tlsFingerprint}> · TLS {item.tlsFingerprint.slice(0, 18)}</span>
+                    ) : ""}
+                  </td>
+                </tr>
+              ))}
+              {observations.length === 0 ? (
+                <tr><td colSpan={7} className="muted">暂无客户端观测</td></tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>

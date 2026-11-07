@@ -82,6 +82,11 @@ export function RiskSettingsForm({ initial }: { initial: RiskSettings }) {
           <input className="input" type="number" min={1} max={3650} value={form.auditRetentionDays}
             onChange={(e) => update("auditRetentionDays", e.target.value)} />
         </div>
+        <div className="field">
+          <label className="label">访问 IP 统计窗口（小时）</label>
+          <input className="input" type="number" min={1} max={720} value={form.visitWindowHours}
+            onChange={(e) => update("visitWindowHours", e.target.value)} />
+        </div>
       </div>
     </form>
   );

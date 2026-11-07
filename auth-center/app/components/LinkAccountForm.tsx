@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PasswordInput } from "./PasswordInput";
 
 export function LinkAccountForm({ ticket, next }: { ticket: string; next: string }) {
   const [form, setForm] = useState({ username: "", password: "" });
@@ -49,9 +50,11 @@ export function LinkAccountForm({ ticket, next }: { ticket: string; next: string
       </div>
       <div className="field">
         <label className="label" htmlFor="link-password">本地账号密码</label>
-        <input id="link-password" className="input" type="password"
-          autoComplete="current-password" value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+        <PasswordInput
+          id="link-password" value={form.password}
+          onChange={(value) => setForm({ ...form, password: value })}
+          autoComplete="current-password" required
+        />
       </div>
       <button className="btn btn-primary" style={{ width: "100%", height: 42, marginTop: 10 }}
         disabled={busy}>

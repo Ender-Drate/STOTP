@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PasswordInput } from "./PasswordInput";
 
 function errorOf(payload: unknown, fallback: string): string {
   const data = payload as { error?: { message?: string } } | null;
@@ -83,11 +84,9 @@ export function LoginForm({ next, initialError = "" }: {
       </div>
       <div className="field">
         <label className="label" htmlFor="password">密码</label>
-        <input
-          id="password" name="password" className="input" type="password"
-          autoComplete="current-password"
-          value={password} onChange={(e) => setPassword(e.target.value)}
-          placeholder="密码" required
+        <PasswordInput
+          id="password" name="password" value={password} onChange={setPassword}
+          autoComplete="current-password" placeholder="密码" required
         />
       </div>
       {captcha ? (
@@ -248,16 +247,19 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
       </div>
       <div className="field">
         <label className="label" htmlFor="newPassword">密码</label>
-        <input id="newPassword" name="password" className="input" type="password"
-          value={form.password} autoComplete="new-password"
-          onChange={(e) => update("password", e.target.value)}
-          placeholder="至少 8 位" required />
+        <PasswordInput
+          id="newPassword" name="password" value={form.password}
+          onChange={(value) => update("password", value)} autoComplete="new-password"
+          placeholder="至少 8 位" required
+        />
       </div>
       <div className="field">
         <label className="label" htmlFor="confirmPassword">确认密码</label>
-        <input id="confirmPassword" name="confirm" className="input" type="password"
-          value={form.confirm} autoComplete="new-password"
-          onChange={(e) => update("confirm", e.target.value)} placeholder="再次输入密码" required />
+        <PasswordInput
+          id="confirmPassword" name="confirm" value={form.confirm}
+          onChange={(value) => update("confirm", value)} autoComplete="new-password"
+          placeholder="再次输入密码" required
+        />
       </div>
       <button type="submit" className="btn btn-primary"
         style={{ width: "100%", height: 42, marginTop: 10 }} disabled={busy}>

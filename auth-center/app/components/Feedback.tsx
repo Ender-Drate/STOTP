@@ -1,9 +1,10 @@
 "use client";
 
 import {
-  createContext, useCallback, useContext, useEffect, useState,
+  createContext, useCallback, useContext, useEffect, useRef, useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 
 type ToastKind = "success" | "error" | "warning" | "info";
 
@@ -155,16 +156,41 @@ export function Modal({
 
 export function Popover({ label, children }: { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setCoords(null);
+      return;
+    }
+    const place = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.min(230, window.innerWidth - 16);
+      const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+      setCoords({ top: Math.min(rect.bottom + 7, window.innerHeight - 150), left });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
   return (
-    <span className="popover-wrap">
+    <span className="popover-wrap" ref={triggerRef}>
       <button type="button" className="popover-trigger" onClick={() => setOpen((value) => !value)}>
         {label}
       </button>
-      {open ? (
-        <span className="popover" role="dialog">
+      {open && coords && typeof document !== "undefined" ? createPortal(
+        <div className="popover" role="dialog" style={{ position: "fixed", top: coords.top, left: coords.left, right: "auto" }}>
           {children}
           <button type="button" className="popover-close" onClick={() => setOpen(false)} aria-label="关闭">×</button>
-        </span>
+        </div>,
+        document.body
       ) : null}
     </span>
   );

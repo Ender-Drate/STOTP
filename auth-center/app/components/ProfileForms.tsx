@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PasswordInput } from "./PasswordInput";
 
 interface Props {
   user: {
@@ -81,7 +82,7 @@ export function ProfileForms({ user }: Props) {
   }
 
   return (
-    <div className="grid" style={{ gridTemplateColumns: "1.3fr 1fr", gap: 16 }}>
+    <div className="grid grid-2" style={{ gap: 16 }}>
       <form className="card card-pad" onSubmit={saveProfile}>
         <div className="card-title" style={{ marginBottom: 16 }}>个人资料</div>
         {profileMsg ? (
@@ -127,22 +128,21 @@ export function ProfileForms({ user }: Props) {
         ) : null}
         <div className="field">
           <label className="label">当前密码</label>
-          <input className="input" type="password" value={password.current}
-            autoComplete="current-password"
-            onChange={(e) => setPassword({ ...password, current: e.target.value })} required />
+          <PasswordInput id="current-password" value={password.current}
+            onChange={(value) => setPassword({ ...password, current: value })}
+            autoComplete="current-password" required />
         </div>
         <div className="field">
           <label className="label">新密码</label>
-          <input className="input" type="password" value={password.next}
-            autoComplete="new-password"
-            onChange={(e) => setPassword({ ...password, next: e.target.value })}
-            placeholder="至少 8 位" required />
+          <PasswordInput id="profile-new-password" value={password.next}
+            onChange={(value) => setPassword({ ...password, next: value })}
+            autoComplete="new-password" placeholder="至少 8 位" required />
         </div>
         <div className="field">
           <label className="label">确认新密码</label>
-          <input className="input" type="password" value={password.confirm}
-            autoComplete="new-password"
-            onChange={(e) => setPassword({ ...password, confirm: e.target.value })} required />
+          <PasswordInput id="profile-confirm-password" value={password.confirm}
+            onChange={(value) => setPassword({ ...password, confirm: value })}
+            autoComplete="new-password" required />
         </div>
         <div className="form-actions">
           <button className="btn btn-primary" disabled={passwordBusy}>
