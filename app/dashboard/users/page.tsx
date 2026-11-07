@@ -93,6 +93,7 @@ export default async function UsersPage({
                       }))}
                       canAssignRoles={isSuperAdmin(me)}
                       canDisable={hasPermission(me, "users.disable")}
+                      canDelete={isSuperAdmin(me)}
                     />
                   </td>
                 </tr>
