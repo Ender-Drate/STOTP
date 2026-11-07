@@ -12,11 +12,14 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string | string[]; error?: string | string[] }>;
+  searchParams: Promise<{
+    next?: string | string[]; error?: string | string[]; verified?: string | string[];
+  }>;
 }) {
   const params = await searchParams;
   const next = safeNextPath(params.next);
   const error = typeof params.error === "string" ? params.error : "";
+  const verified = params.verified === "1";
   const user = await currentUser();
   if (user) redirect(next);
   const providers = listProviders(true);
@@ -32,7 +35,7 @@ export default async function LoginPage({
           </div>
         </div>
         <h1 className="auth-title">登录账户</h1>
-        <LoginForm next={next} initialError={error} />
+        <LoginForm next={next} initialError={error} verified={verified} />
         <PasskeyLoginButton next={next} />
         {providers.length ? (
           <div className="login-providers">
