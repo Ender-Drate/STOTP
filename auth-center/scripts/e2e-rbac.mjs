@@ -85,11 +85,24 @@ const unusedRole = await json("/api/admin/roles", {
 });
 ok(unusedRole.res.status === 201, "create unused role");
 
-const systemEdit = await json(`/api/admin/roles/${systemAdminRole.id}`, {
+const editable = await json("/api/admin/roles", {
+  method: "POST", headers: { Cookie: adminCookie },
+  body: JSON.stringify({ name: `可编辑角色 ${suffix}`, permissions: ["stats.view"] }),
+});
+const edited = await json(`/api/admin/roles/${editable.body.role.id}`, {
+  method: "PATCH", headers: { Cookie: adminCookie },
+  body: JSON.stringify({ name: `已改角色 ${suffix}`, permissions: ["users.view"] }),
+});
+ok(edited.res.status === 200
+  && edited.body?.role?.name === `已改角色 ${suffix}`
+  && edited.body?.role?.permissionsList?.includes("users.view"),
+  "created role nodes can be edited");
+
+const systemEdit = await json(`/api/admin/roles/${superRole.id}`, {
   method: "PATCH", headers: { Cookie: adminCookie },
   body: JSON.stringify({ name: "改名", permissions: ["stats.view"] }),
 });
-ok(systemEdit.res.status === 403, "system role is immutable");
+ok(systemEdit.res.status === 403, "superadmin role is immutable");
 
 const inUse = await json(`/api/admin/roles/${unusedRole.body.role.id}`, {
   method: "DELETE", headers: { Cookie: adminCookie },

@@ -21,6 +21,10 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
         href: "/dashboard/apps", label: "OAuth2 应用", icon: "apps",
         permission: "oauth.apps.manage",
       },
+      {
+        href: "/dashboard/logins", label: "登录入口", icon: "shield",
+        permission: "login.providers.manage",
+      },
       { href: "/dashboard/authorizations", label: "我的授权", icon: "authz" },
       {
         href: "/dashboard/users", label: "用户管理", icon: "users",

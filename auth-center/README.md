@@ -6,7 +6,8 @@
 - Scope：`openid`、`profile`、`email`、`head`（头像）、`permission`（权限节点）、`offline_access`。
 - 管理台：概览、OAuth2 应用（创建/编辑/密钥轮换/启停/删除）、我的授权（撤销）、用户管理（权限等级/状态）、**权限等级（RBAC）**、个人设置。
 - 登录站：登录、注册、授权同意页、退出；密码使用 scrypt 哈希，会话保存在服务端。
-- **STOTP 两步验证（可选）**：绑定设备后，登录需要密码 + STOTP App 的 6 位验证码；注册流程不变，未绑定用户仍可密码登录。
+- 登录方式：密码、Passkey（无密码）、TOTP 两步验证、外部 OAuth2 登录服务（管理员配置图标/回调）。
+- **STOTP 两步验证（旧版可选）**：已有绑定仍兼容；新部署推荐 TOTP。
 
 技术栈：Next.js 16（App Router）+ React 19 + Node 内置 `node:sqlite`，无外部数据库依赖。
 
@@ -89,52 +90,41 @@ location / {
 - `data/auth.db`：用户、OAuth 应用、授权码、令牌、会话、授权记录、审计。
 - `data/oidc-keys.json`：RSA 私钥（0600），用于 RS256 签名；**不要提交或泄露**。
 
-## STOTP 两步验证（可选）
+## 登录方式
 
-默认行为是固定的：**只有已绑定设备的用户**在密码之后需要 6 位验证码；未绑定用户、注册流程完全不变。
-没有“强制所有人绑定”或“全局关闭”的开关；绑定入口在「设置 → STOTP 两步验证」。
+### TOTP 两步验证
 
-### 1. STOTP 服务端开启登录站接口
+设置页「TOTP 两步验证」→ 扫描二维码 → 输入 6 位码启用。启用后登录需要密码 + TOTP 动态码；
+关闭时需要当前密码。使用标准 TOTP（SHA1 / 6 位 / 30 秒，允许 ±1 步）。
 
-```bash
-# /etc/stotp/stotp.env
-STOTP_LOGIN_VERIFY=1
-```
+### Passkey（无密码登录）
 
-对应接口是 `POST /v1/login/verify`，只接受登录站 `client_credentials` 令牌；详见 `docs/api.md` §4.2。
+设置页「Passkey」添加设备，登录页点「使用 Passkey 登录」即可无密码进入。
 
-### 2. 在 STOTP 注册登录站客户端
+- `RP ID` / `Origin` 从 `AUTH_PUBLIC_URL` 自动推导；必须是 **HTTPS 域名**（`localhost` 除外）。
+- 换域名会导致已注册 Passkey 失效。
+- 添加/删除 Passkey 都在设置页，删除需要已登录会话。
 
-```bash
-curl -s -X POST http://127.0.0.1:8787/oauth/register \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "client_name": "STOTP Auth Center",
-    "redirect_uris": ["https://auth.example.com/"],
-    "grant_types": ["client_credentials"],
-    "scope": "stotp.verify"
-  }'
-```
+### 外部 OAuth2 登录服务
 
-响应里的 `client_id` / `client_secret` 只显示一次，保存到 auth-center 的环境变量。
+最高管理员在「登录入口」添加朋友的 OAuth2 服务：
 
-### 3. auth-center 环境变量
+- 名称、图标 URL、Client ID / Secret
+- 授权地址、Token 地址、UserInfo 地址、scope
+- 统一回调地址：`{AUTH_PUBLIC_URL}/api/oauth/callback`
 
-```bash
-STOTP_BASE_URL=http://127.0.0.1:8787
-STOTP_LOGIN_CLIENT_ID=srv_...
-STOTP_LOGIN_CLIENT_SECRET=cs_...
-```
+对方 UserInfo 必须返回 `sub`（或 `id`）与 `email`；只有 `email_verified: true` 才会自动匹配/创建本地账号。
+已绑定过的 `sub` 再次登录会直接复用本地账号。
 
-重启 auth-center 后，设置页会出现绑定表单。用户输入 STOTP App 设备详情里的 `client_id` 和当前 6 位码，
-验证通过才落库；一个设备只能绑定一个账号。
+> 外部登录的 `client_secret` 保存在 `data/auth.db`，请确保数据库文件权限为 600 并做好备份。
+> 旧的 STOTP 绑定仍兼容，但新部署推荐 TOTP / Passkey；设置页已不再显示 STOTP 绑定入口。
 
-### 4. 登录行为
+### 登录行为
 
-- 未绑定：密码登录。
-- 已绑定：密码 + 6 位验证码。
-- 已绑定用户遇到 STOTP 不可达、assertion 验签失败或超时 → 拒绝登录（fail closed）；未绑定用户不受影响。
-- 管理员可在「用户管理」查看绑定状态并解绑。
+- 只启用 TOTP：密码 + TOTP。
+- 只启用 Passkey：可直接 Passkey 登录；密码仍可用。
+- 两者都启用：密码登录走 TOTP，Passkey 登录独立可用。
+- 外部登录服务：登录页显示按钮，走 OAuth2 回调。
 
 ## 权限等级（RBAC）
 
@@ -144,7 +134,7 @@ STOTP_LOGIN_CLIENT_SECRET=cs_...
 - **管理员（admin）**：系统内置的日常管理等级，不能修改权限等级。
 - **普通用户（user）**：默认只有「绑定 STOTP」权限。
 - 最高管理员可以在「权限」页新建自定义等级，勾选该等级拥有的权限节点；自定义等级可以编辑/删除，
-  系统内置等级只读。
+  `admin` / `user` 等内置等级也可以编辑权限节点，只有 `superadmin` 本身不可改。
 - 用户管理页可以把用户分配到任意权限等级（仅最高管理员可改）；禁用/启用用户需要 `users.disable`。
 
 权限节点：
@@ -156,7 +146,8 @@ STOTP_LOGIN_CLIENT_SECRET=cs_...
 | `users.manage` | 编辑用户资料/角色 |
 | `users.disable` | 禁用 / 重新启用用户 |
 | `oauth.apps.manage` | 接入 / 管理 OAuth2 应用 |
-| `stotp.bind` | 绑定自己的 STOTP 设备 |
+| `login.providers.manage` | 管理外部登录服务 |
+| `stotp.bind` | 绑定自己的 STOTP 设备（旧版兼容） |
 | `stotp.manage` | 解绑他人的 STOTP 设备 |
 | `stats.view` | 查看统计 |
 | `audit.view` | 查看审计 |
@@ -202,6 +193,8 @@ GET {AUTH_PUBLIC_URL}/api/oauth/authorize
 - 授权码一次性、10 分钟过期，绑定 client / redirect_uri / PKCE。
 - Access Token 15 分钟（RS256 JWT），Refresh Token 30 天且每次刷新轮换。
 - Client Secret 只存 SHA-256；用户密码 scrypt + 随机盐。
+- TOTP secret 与外部登录的 client_secret 存在 `data/auth.db`，请把数据库权限设为 600 并做好备份；
+  外部登录只保存 Passkey 公钥，不保存私钥。
 - 登录/注册按 IP 限速；管理 API 校验同源 Origin；Cookie `HttpOnly` + `SameSite=Lax`，HTTPS 部署自动加 `Secure`。
 - STOTP 两步验证：assertion 用 `HKDF(client_secret, "stotp/assertion/v1")` 验 HS256，并校验 `aud/exp/client_id`；
   登录 challenge 5 分钟一次性、最多 5 次尝试，绑定设备全局唯一。
@@ -233,6 +226,16 @@ npm run e2e:stotp
 覆盖：无绑定密码登录、绑定错误码/正确码、登录 `otp_required`、错误 OTP、正确 OTP、ticket 单次使用、
 assertion 篡改/错误 aud/过期、重复绑定、用户解绑、管理员解绑、STOTP 不可达 fail closed。
 
+TOTP / Passkey / 外部登录：
+
+```bash
+npm run e2e:totp
+npm run e2e:provider
+```
+
+覆盖：TOTP 启用/登录/重放/关闭、外部 OAuth2 授权码回调/账号创建/复用/未验证邮箱拒绝/图标展示。
+Passkey 使用 Chromium virtual authenticator 做过注册 + 无密码登录实测（需要 HTTPS 域名或 localhost）。
+
 权限等级：
 
 ```bash
@@ -258,6 +261,14 @@ npm run e2e:rbac
 | 权限等级 | 接入文档 |
 | --- | --- |
 | ![roles](docs/screenshots/roles.png) | ![docs](docs/screenshots/docs-v2.png) |
+
+| 登录方式 | TOTP 设置 |
+| --- | --- |
+| ![login-methods](docs/screenshots/login-methods.png) | ![totp](docs/screenshots/totp-setup.png) |
+
+| 外部登录服务 | Passkey |
+| --- | --- |
+| ![logins](docs/screenshots/logins.png) | ![passkey](docs/screenshots/passkey.png) |
 
 ## 已知限制
 

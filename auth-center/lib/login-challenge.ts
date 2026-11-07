@@ -10,20 +10,21 @@ export interface LoginChallenge {
   expires_at: number;
   ttl_seconds: number;
   ip: string;
+  method: "stotp" | "totp";
   attempts: number;
   used: number;
   created_at: number;
 }
 
 export function createChallenge(
-  userId: number, ttlSeconds: number, ip: string
+  userId: number, ttlSeconds: number, ip: string, method: "stotp" | "totp" = "stotp"
 ): { ticket: string; expiresIn: number } {
   const ticket = randomToken(32);
   const now = nowSec();
   getDb().prepare(
-    `INSERT INTO login_challenges(token_hash, user_id, expires_at, ttl_seconds, ip, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(sha256(ticket), userId, now + CHALLENGE_TTL_SECONDS, ttlSeconds, ip, now);
+    `INSERT INTO login_challenges(token_hash, user_id, expires_at, ttl_seconds, ip, method, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(sha256(ticket), userId, now + CHALLENGE_TTL_SECONDS, ttlSeconds, ip, method, now);
   getDb().prepare("DELETE FROM login_challenges WHERE expires_at < ?").run(now - 60);
   return { ticket, expiresIn: CHALLENGE_TTL_SECONDS };
 }
