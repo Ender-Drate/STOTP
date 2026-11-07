@@ -394,7 +394,7 @@ npm run e2e:rbac
 
 ## 集成
 
-- **Z-BlogPHP OAuth2 登录插件**：[`integrations/zblog-oauth2`](integrations/zblog-oauth2/README.md)，支持授权码 + PKCE、自动注册、已验证邮箱绑定，登录页注入按钮。
+- **Z-BlogPHP OAuth2 登录插件**：[`integrations/zblog-oauth2`](integrations/zblog-oauth2/README.md)，支持多个任意 OAuth2/OIDC Provider、授权码 + PKCE、字段映射、自动注册、已验证邮箱绑定。
 
 ## 已知限制
 

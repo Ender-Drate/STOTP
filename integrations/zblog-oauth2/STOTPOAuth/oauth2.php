@@ -28,11 +28,11 @@ function stotp_oauth_http($method, $url, $body = null, $headers = array())
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_USERAGENT => 'STOTPOAuth/1.0 Z-BlogPHP',
+            CURLOPT_USERAGENT => 'STOTPOAuth/1.1 Z-BlogPHP',
         );
         if ($method === 'POST') {
             $options[CURLOPT_POST] = true;
-            $options[CURLOPT_POSTFIELDS] = $body;
+            $options[CURLOPT_POSTFIELDS] = $body === null ? '' : $body;
         }
         curl_setopt_array($ch, $options);
         $raw = curl_exec($ch);
@@ -46,7 +46,7 @@ function stotp_oauth_http($method, $url, $body = null, $headers = array())
     $opts = array('http' => array(
         'method' => $method,
         'header' => implode("\r\n", $headers),
-        'content' => $method === 'POST' ? $body : '',
+        'content' => $method === 'POST' ? (string) $body : '',
         'timeout' => 20,
         'ignore_errors' => true,
         'follow_location' => 0,
@@ -64,30 +64,39 @@ function stotp_oauth_start()
 {
     global $zbp;
 
-    $clientId = stotp_oauth_config('client_id');
-    $authUrl = stotp_oauth_config('authorization_url');
-    if ($clientId === '' || $authUrl === '') {
-        stotp_oauth_fail('插件尚未配置 Client ID 或 Authorization URL。');
+    $slug = isset($_GET['provider']) ? (string) $_GET['provider'] : '';
+    $provider = stotp_oauth_provider_by_slug($slug);
+    if (!$provider || !(int) $provider->Enabled) {
+        stotp_oauth_fail('OAuth2 Provider 不存在或已停用。');
+    }
+    if ($provider->AuthURL === '' || $provider->ClientID === '') {
+        stotp_oauth_fail('该 Provider 尚未配置 Authorization URL 或 Client ID。');
     }
     $state = bin2hex(random_bytes(16));
-    $verifier = bin2hex(random_bytes(32));
+    $verifier = $provider->PKCE ? bin2hex(random_bytes(32)) : '';
     $_SESSION['STOTPOAuth_state'] = array(
         'state' => $state,
         'verifier' => $verifier,
+        'provider_id' => (int) $provider->ID,
         'created' => time(),
     );
-    $challenge = stotp_oauth_base64url(hash('sha256', $verifier, true));
-    $params = array(
+    $params = array();
+    if ($provider->Extra !== '') {
+        parse_str($provider->Extra, $params);
+    }
+    $params = array_merge($params, array(
         'response_type' => 'code',
-        'client_id' => $clientId,
+        'client_id' => $provider->ClientID,
         'redirect_uri' => stotp_oauth_callback_url(),
-        'scope' => stotp_oauth_config('scope', 'openid profile email'),
+        'scope' => $provider->Scopes,
         'state' => $state,
-        'code_challenge' => $challenge,
-        'code_challenge_method' => 'S256',
-    );
-    $separator = strpos($authUrl, '?') === false ? '?' : '&';
-    Redirect($authUrl . $separator . http_build_query($params, '', '&', PHP_QUERY_RFC3986));
+    ));
+    if ($provider->PKCE) {
+        $params['code_challenge'] = stotp_oauth_base64url(hash('sha256', $verifier, true));
+        $params['code_challenge_method'] = 'S256';
+    }
+    $separator = strpos($provider->AuthURL, '?') === false ? '?' : '&';
+    Redirect($provider->AuthURL . $separator . http_build_query($params, '', '&', PHP_QUERY_RFC3986));
 }
 
 function stotp_oauth_callback()
@@ -111,20 +120,34 @@ function stotp_oauth_callback()
     if ($code === '') {
         stotp_oauth_fail('登录服务未返回授权码。');
     }
+    $provider = stotp_oauth_provider_by_id((int) $saved['provider_id']);
+    if (!$provider || !(int) $provider->Enabled) {
+        stotp_oauth_fail('OAuth2 Provider 不存在或已停用。');
+    }
 
-    $body = http_build_query(array(
+    $tokenBody = array(
         'grant_type' => 'authorization_code',
         'code' => $code,
         'redirect_uri' => stotp_oauth_callback_url(),
-        'client_id' => stotp_oauth_config('client_id'),
-        'client_secret' => stotp_oauth_config('client_secret'),
-        'code_verifier' => (string) $saved['verifier'],
-    ), '', '&', PHP_QUERY_RFC3986);
+        'client_id' => $provider->ClientID,
+    );
+    if ((string) $provider->ClientSecret !== '') {
+        $tokenBody['client_secret'] = $provider->ClientSecret;
+    }
+    if ($provider->PKCE && !empty($saved['verifier'])) {
+        $tokenBody['code_verifier'] = $saved['verifier'];
+    }
+    $tokenHeaders = array('Accept: application/json');
+    if ($provider->TokenAuth === 'basic') {
+        $tokenHeaders[] = 'Authorization: Basic ' . base64_encode($provider->ClientID . ':' . $provider->ClientSecret);
+        unset($tokenBody['client_secret']);
+    }
+    $tokenHeaders[] = 'Content-Type: application/x-www-form-urlencoded';
     list($tokenStatus, $tokenRaw, $tokenError) = stotp_oauth_http(
         'POST',
-        stotp_oauth_config('token_url'),
-        $body,
-        array('Accept: application/json', 'Content-Type: application/x-www-form-urlencoded')
+        $provider->TokenURL,
+        http_build_query($tokenBody, '', '&', PHP_QUERY_RFC3986),
+        $tokenHeaders
     );
     $token = json_decode($tokenRaw, true);
     if (!is_array($token)) {
@@ -135,29 +158,41 @@ function stotp_oauth_callback()
         stotp_oauth_fail('换取 Token 失败：' . (string) $detail);
     }
 
+    $userHeaders = array(
+        'Accept: application/json',
+        'Authorization: Bearer ' . $token['access_token'],
+    );
     list($userStatus, $userRaw, $userError) = stotp_oauth_http(
-        'GET',
-        stotp_oauth_config('userinfo_url'),
-        null,
-        array('Accept: application/json', 'Authorization: Bearer ' . $token['access_token'])
+        strtoupper($provider->UserInfoMethod) === 'POST' ? 'POST' : 'GET',
+        $provider->UserInfoURL,
+        '',
+        $userHeaders
     );
     $profile = json_decode($userRaw, true);
     if ($userStatus < 200 || $userStatus >= 300 || !is_array($profile)) {
         stotp_oauth_fail('读取用户信息失败：' . (string) $userError);
     }
-    $subject = isset($profile['sub']) ? (string) $profile['sub'] : (isset($profile['id']) ? (string) $profile['id'] : '');
-    if ($subject === '') {
-        stotp_oauth_fail('登录服务未返回 sub/id。');
+
+    $subjectValue = stotp_oauth_path($profile, $provider->SubjectField !== '' ? $provider->SubjectField : 'sub');
+    if ($subjectValue === null && isset($profile['id'])) {
+        $subjectValue = $profile['id'];
     }
-    $email = isset($profile['email']) ? trim((string) $profile['email']) : '';
+    $subject = $subjectValue === null ? '' : (string) $subjectValue;
+    if ($subject === '') {
+        stotp_oauth_fail('登录服务未返回 Subject（检查 Subject 字段映射）。');
+    }
+    $emailValue = stotp_oauth_path($profile, $provider->EmailField !== '' ? $provider->EmailField : 'email');
+    $email = $emailValue === null ? '' : trim((string) $emailValue);
     if ($email !== '' && function_exists('CheckRegExp') && !CheckRegExp($email, '[email]')) {
         stotp_oauth_fail('登录服务返回的邮箱格式不正确。');
     }
-    $verified = isset($profile['email_verified'])
-        && ($profile['email_verified'] === true || $profile['email_verified'] === 'true' || $profile['email_verified'] == 1);
+    $verifiedValue = $provider->VerifiedField !== ''
+        ? stotp_oauth_path($profile, $provider->VerifiedField) : null;
+    $verified = (bool) $provider->TrustEmail
+        || $verifiedValue === true || $verifiedValue === 'true' || $verifiedValue == 1;
 
     $member = null;
-    $link = stotp_oauth_find_link($subject);
+    $link = stotp_oauth_find_link((int) $provider->ID, $subject);
     if ($link && (int) $link->MemberID > 0) {
         $member = $zbp->GetMemberByID((int) $link->MemberID);
         if (!$member || (int) $member->ID <= 0) {
@@ -171,43 +206,35 @@ function stotp_oauth_callback()
     if (!$member && !$verified && stotp_oauth_config('allow_email_link', 1)) {
         stotp_oauth_fail('登录服务返回的邮箱未验证，无法自动绑定。');
     }
-
     if (!$member && $email !== '' && stotp_oauth_config('allow_email_link', 1)) {
         $existing = $zbp->GetMemberByEmail($email);
         if ($existing && (int) $existing->ID > 0) {
             $member = $existing;
         }
     }
-
     if (!$member && $email !== '') {
         $existing = $zbp->GetMemberByEmail($email);
         if ($existing && (int) $existing->ID > 0) {
-            stotp_oauth_fail('该邮箱已存在本地账号，但当前不允许自动绑定，请先登录本地账号或联系管理员。');
+            stotp_oauth_fail('该邮箱已存在本地账号，但当前不允许自动绑定。');
         }
     }
-
     if (!$member) {
         if (!stotp_oauth_config('auto_register', 1)) {
-            stotp_oauth_fail('该第三方账号尚未绑定本地账号，且插件未开启自动注册。');
+            stotp_oauth_fail('该第三方账号尚未绑定本地账号，且未开启自动注册。');
         }
         if (!$verified) {
-            stotp_oauth_fail('登录服务未返回已验证邮箱，不能自动注册。');
+            stotp_oauth_fail('邮箱未验证，不能自动注册。');
         }
-        if ($email === '') {
-            stotp_oauth_fail('登录服务未返回邮箱，不能自动注册。');
-        }
-        $member = stotp_oauth_create_member($profile, $email, $subject);
+        $member = stotp_oauth_create_member($profile, $email, $subject, $provider);
     }
-
     if (!$member || (int) $member->ID <= 0) {
         stotp_oauth_fail('无法创建或读取本地账号。');
     }
     if ((int) $member->Status !== 0) {
         stotp_oauth_fail('本地账号已被禁用。');
     }
-
     if (!$link) {
-        stotp_oauth_save_link($member->ID, $subject, $email);
+        stotp_oauth_save_link((int) $provider->ID, (int) $member->ID, $subject, $email);
     }
 
     $zbp->user = $member;
@@ -221,7 +248,7 @@ function stotp_oauth_callback()
     Redirect($redirect);
 }
 
-function stotp_oauth_create_member($profile, $email, $subject)
+function stotp_oauth_create_member($profile, $email, $subject, $provider)
 {
     global $zbp;
 
@@ -229,7 +256,6 @@ function stotp_oauth_create_member($profile, $email, $subject)
     if ($existing && (int) $existing->ID > 0) {
         stotp_oauth_fail('该邮箱已存在本地账号，不能自动注册。');
     }
-
     $member = new Member();
     $member->Guid = GetGuid();
     $base = strstr($email, '@', true);
@@ -240,7 +266,7 @@ function stotp_oauth_create_member($profile, $email, $subject)
     $min = isset($zbp->option['ZC_USERNAME_MIN']) ? (int) $zbp->option['ZC_USERNAME_MIN'] : 3;
     $max = isset($zbp->option['ZC_USERNAME_MAX']) ? (int) $zbp->option['ZC_USERNAME_MAX'] : 50;
     if (strlen($base) < $min) {
-        $base = 'oauth_' . substr(hash('sha256', $subject), 0, 12);
+        $base = 'oauth_' . substr(hash('sha256', $provider->Slug . '|' . $subject), 0, 12);
     }
     if (strlen($base) > $max) {
         $base = substr($base, 0, $max);
@@ -252,7 +278,8 @@ function stotp_oauth_create_member($profile, $email, $subject)
         $name = substr($base, 0, max(1, $max - strlen($suffix))) . $suffix;
         $index++;
     }
-    $display = isset($profile['name']) ? trim((string) $profile['name']) : '';
+    $nameValue = stotp_oauth_path($profile, $provider->NameField !== '' ? $provider->NameField : 'name');
+    $display = $nameValue === null ? '' : trim((string) $nameValue);
     if ($display === '' && isset($profile['preferred_username'])) {
         $display = trim((string) $profile['preferred_username']);
     }
