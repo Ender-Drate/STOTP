@@ -79,6 +79,7 @@ location / {
 | `AUTH_ADMIN_USERNAME` | `admin` | 首次启动创建的管理员用户名 |
 | `AUTH_ADMIN_EMAIL` | `admin@localhost` | 管理员邮箱 |
 | `AUTH_ADMIN_PASSWORD` | 见上 | 管理员初始密码 |
+| `AUTH_TRUST_PROXY` | `1` | 信任反向代理传来的 `X-Real-IP` / `X-Forwarded-For` / `CF-Connecting-IP`；应用直接暴露公网时设为 `0` |
 | `STOTP_BASE_URL` | 空 | STOTP 服务端内部地址，如 `http://127.0.0.1:8787`；为空则无法绑定，已绑定用户会 fail closed |
 | `STOTP_LOGIN_CLIENT_ID` | 空 | 在 STOTP `/oauth/register` 注册的**登录站** OAuth client_id（`srv_...`） |
 | `STOTP_LOGIN_CLIENT_SECRET` | 空 | 上述登录站客户端的 secret，用于换 token 和验 assertion |
@@ -89,6 +90,28 @@ location / {
 
 - `data/auth.db`：用户、OAuth 应用、授权码、令牌、会话、授权记录、审计。
 - `data/oidc-keys.json`：RSA 私钥（0600），用于 RS256 签名；**不要提交或泄露**。
+
+### 反向代理真实 IP
+
+如果审计里全是 `127.0.0.1`，说明 nginx 没有把客户端 IP 传给 auth-center。nginx 至少需要：
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3100;
+    proxy_http_version 1.1;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;   # 覆盖，不要追加不可信 XFF
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+}
+```
+
+完整示例见 [`docs/nginx-auth-center.conf`](docs/nginx-auth-center.conf)。
+
+应用会按 `CF-Connecting-IP` → `X-Real-IP` → `X-Forwarded-For` / `Forwarded` 的顺序取第一个公网地址。
+修改 nginx 后执行 `nginx -t && systemctl reload nginx`；历史审计里的 `127.0.0.1` 不会自动回填，新登录开始记录真实 IP。
 
 ## 登录方式
 

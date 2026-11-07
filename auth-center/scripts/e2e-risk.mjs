@@ -26,9 +26,19 @@ async function json(path, options = {}) {
 
 const admin = await json("/api/auth/login", {
   method: "POST",
+  headers: {
+    "X-Real-IP": "203.0.113.10",
+    "X-Forwarded-For": "203.0.113.10, 127.0.0.1",
+  },
   body: JSON.stringify({ username: "admin", password: ADMIN_PASSWORD }),
 });
-ok(admin.res.status === 200, "admin login");
+ok(admin.res.status === 200, "admin login through trusted proxy");
+
+const proxiedRisk = await fetch(BASE + "/dashboard/risk", {
+  headers: { Cookie: admin.cookie },
+});
+const proxiedHtml = await proxiedRisk.text();
+ok(proxiedHtml.includes("203.0.113.10"), "audit stores X-Real-IP instead of 127.0.0.1");
 
 const stats = await fetch(BASE + "/dashboard/stats", { headers: { Cookie: admin.cookie } });
 const statsHtml = await stats.text();

@@ -2,6 +2,7 @@ const raw = process.env.AUTH_PUBLIC_URL || "http://localhost:3100";
 
 /** 对外基础地址，用于 issuer / 回调拼接。 */
 export const PUBLIC_URL = raw.replace(/\/+$/, "");
+export const TRUST_PROXY = process.env.AUTH_TRUST_PROXY !== "0";
 
 export const BRAND = {
   name: "STOTP 账户",
