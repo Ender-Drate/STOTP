@@ -8,7 +8,11 @@ import { UserActions } from "@/app/components/UserActions";
 
 export const dynamic = "force-dynamic";
 
-export default async function UsersPage() {
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
   const me = await currentUser();
   if (!me) redirect("/login?next=/dashboard/users");
   if (!hasPermission(me, "users.view")) {
@@ -19,8 +23,16 @@ export default async function UsersPage() {
       </div>
     );
   }
-  const users = getDb().prepare("SELECT * FROM users ORDER BY id DESC")
-    .all() as unknown as User[];
+  const params = await searchParams;
+  const query = typeof params.q === "string" ? params.q.trim() : "";
+  const users = (query
+    ? getDb().prepare(
+      `SELECT * FROM users
+       WHERE username LIKE ? OR email LIKE ? OR display_name LIKE ?
+       ORDER BY id DESC LIMIT 500`
+    ).all(`%${query}%`, `%${query}%`, `%${query}%`)
+    : getDb().prepare("SELECT * FROM users ORDER BY id DESC")
+      .all()) as unknown as User[];
   const roles = listRoles();
   const roleById = new Map(roles.map((role) => [role.id, role]));
   const bindings = new Set<number>();
@@ -35,8 +47,14 @@ export default async function UsersPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">用户管理</h1>
-          <p className="page-desc">{users.length} 个账号 · 调整权限等级与状态</p>
+          <p className="page-desc">{users.length} 个账号{query ? ` · 搜索「${query}」` : ""}</p>
         </div>
+        <form className="row" style={{ gap: 8 }} action="/dashboard/users" method="get">
+          <input className="input" name="q" defaultValue={query}
+            placeholder="搜索用户名 / 邮箱 / 昵称" style={{ width: 230 }} />
+          <button className="btn btn-primary btn-sm">搜索</button>
+          {query ? <a className="btn btn-ghost btn-sm" href="/dashboard/users">清除</a> : null}
+        </form>
       </div>
       <div className="card">
         <table className="table">

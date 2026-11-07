@@ -277,11 +277,25 @@ CREATE TABLE IF NOT EXISTS risk_settings (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS risk_observations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  user_id INTEGER,
+  path TEXT,
+  user_agent TEXT,
+  tls_fingerprint TEXT,
+  signals TEXT NOT NULL,
+  score INTEGER NOT NULL DEFAULT 0,
+  reasons TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_passkeys_user ON passkeys(user_id);
 
 CREATE INDEX IF NOT EXISTS idx_tokens_client ON tokens(client_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_challenges_expiry ON login_challenges(expires_at);
+CREATE INDEX IF NOT EXISTS idx_risk_observations_ip_ts ON risk_observations(ip, ts);
 `;
 
 const globalForDb = globalThis as unknown as { __authCenterDb?: DatabaseSync };

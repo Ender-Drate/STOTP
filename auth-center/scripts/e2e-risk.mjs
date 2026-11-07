@@ -45,10 +45,40 @@ const statsHtml = await stats.text();
 ok(stats.status === 200 && statsHtml.includes("统计信息") && statsHtml.includes("CPU 使用率"),
   "stats page renders host metrics");
 
+const observed = await json("/api/risk/observe", {
+  method: "POST",
+  headers: {
+    "X-Real-IP": "112.9.40.76",
+    "User-Agent": "Mozilla/5.0 RiskTest",
+    "X-TLS-Fingerprint": "t13d1513_test_fingerprint",
+  },
+  body: JSON.stringify({
+    path: "/risk-test",
+    signals: {
+      languages: ["zh-CN"], timezone: "Asia/Shanghai",
+      screen: { width: 1920, height: 1080, colorDepth: 24 },
+      hardwareConcurrency: 8, plugins: 3, platform: "Win32",
+      webglRenderer: "ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 SUPER)",
+    },
+  }),
+});
+ok(observed.res.status === 200, "risk observation accepted");
+
 const risk = await fetch(BASE + "/dashboard/risk", { headers: { Cookie: admin.cookie } });
 const riskHtml = await risk.text();
 ok(risk.status === 200 && riskHtml.includes("风险控制") && riskHtml.includes("最近审计"),
   "risk page renders audit");
+ok(riskHtml.includes("112.9.40.76") && riskHtml.includes("山东省青岛市"),
+  "72h IP table resolves Chinese location");
+ok(riskHtml.includes("最近访问观测") && riskHtml.includes("1660 SUPER"),
+  "environment observations visible");
+ok(riskHtml.includes("t13d1513_test_fingerprint"), "TLS fingerprint header recorded");
+
+const exported = await fetch(BASE + "/api/admin/audit/export", {
+  headers: { Cookie: admin.cookie },
+});
+ok(exported.status === 200 && (exported.headers.get("content-type") || "").includes("text/csv"),
+  "audit CSV export");
 
 const patched = await json("/api/admin/risk", {
   method: "PATCH", headers: { Cookie: admin.cookie },

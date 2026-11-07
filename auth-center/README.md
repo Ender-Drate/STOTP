@@ -169,6 +169,7 @@ GitHub Token 端点默认返回 `application/x-www-form-urlencoded`，auth-cente
 - 只启用 Passkey：可直接 Passkey 登录；密码仍可用。
 - 两者都启用：密码登录走 TOTP，Passkey 登录独立可用。
 - 外部登录服务：登录页显示按钮，走 OAuth2 回调；已绑定本地账号时仍按该账号的 TOTP/STOTP 策略验证。
+- 登录、注册、绑定、修改密码输入框均有「显示/隐藏」明文切换。
 
 ### 登录失败图形验证码
 
@@ -186,8 +187,26 @@ GitHub Token 端点默认返回 `application/x-www-form-urlencoded`，auth-cente
 - **统计信息**：CPU、内存、磁盘、网络收发速率、认证 QPS、负载、运行时间、进程内存。
 - **风险控制**：24h 登录失败、独立 IP、高风险 IP、验证码阈值、最近审计与 IP 风险估值。
 
-风控指标仅最高管理员可修改，包括验证码触发阈值、失败计数窗口、高中风险阈值、审计保留天数。
-审计页会结合 `login_failed`、TOTP/STOTP 拒绝记录给出 IP 风险分。
+风控指标仅最高管理员可修改，包括验证码触发阈值、失败计数窗口、高中风险阈值、审计保留天数、访问 IP 统计窗口。
+
+### 访问观测与 72h IP
+
+每个页面会通过 `RiskObserver` 上报一次脱敏环境信号（不发机械轨迹）：
+
+- WebGL vendor/renderer、平台、语言、时区、屏幕、CPU 并发数、插件数；
+- `navigator.webdriver`、Headless/Puppeteer/Playwright/Selenium UA、软件渲染等自动化特征；
+- 服务端记录 IP、UA、TLS 指纹头、页面路径和评分/原因。
+
+风险页会显示：
+
+- **72 小时访问 IP**：IP、中文属地、次数、首次/最近、风险分、环境信号；
+- **最近访问观测**：渲染器/平台、评分、原因、TLS 指纹；
+- 中文属地由 `ip2region` 离线库解析，内网/回环单独标记；
+- 支持导出审计 CSV。
+
+TLS 指纹无法由浏览器 JS 计算。若前置 WAF/CDN 提供，会读取
+`X-TLS-Fingerprint` / `X-JA3-Fingerprint` / `X-JA4-Fingerprint` / `X-JA3-Hash` / `X-SSL-JA3` 头；
+没有时显示未提供，不会伪造。
 
 ## 权限等级（RBAC）
 
@@ -299,7 +318,8 @@ npm run e2e:risk
 ```
 
 覆盖：TOTP 启用/登录/重放/关闭；外部 OAuth2 授权码回调、本地绑定、TOTP 二阶段绑定、已绑定复用、解绑；
-图形验证码触发/错误/正确/计数清除；统计与风险页面、最高管理员修改风控指标、普通用户拒绝修改。
+图形验证码触发/错误/正确/计数清除；统计与风险页面、最高管理员修改风控指标、普通用户拒绝修改；
+环境观测、72h IP 中文属地、TLS 指纹头、审计 CSV 导出。
 `e2e:captcha` 需要以 `AUTH_E2E=1` 启动 auth-center 才会返回测试用验证码文本；生产环境不要设置。
 Passkey 使用 Chromium virtual authenticator 做过注册 + 无密码登录实测（需要 HTTPS 域名或 localhost）。
 
@@ -344,6 +364,10 @@ npm run e2e:rbac
 | 统计信息 | 风险控制 |
 | --- | --- |
 | ![stats](docs/screenshots/stats.png) | ![risk](docs/screenshots/risk.png) |
+
+| 风险观测 / 72h IP | 密码明文切换 |
+| --- | --- |
+| ![risk-observations](docs/screenshots/risk-observations.png) | ![password](docs/screenshots/password-visible.png) |
 
 | 图形验证码 | 移动端 |
 | --- | --- |
