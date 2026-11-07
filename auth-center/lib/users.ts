@@ -1,12 +1,7 @@
 import type { User } from "./db";
+import { permissionsOf, roleNameOf } from "./permissions";
 
 export function publicUser(user: User) {
-  let permissions: string[] = [];
-  try {
-    permissions = JSON.parse(user.permissions) as string[];
-  } catch {
-    permissions = [];
-  }
   return {
     id: user.id,
     username: user.username,
@@ -14,8 +9,9 @@ export function publicUser(user: User) {
     displayName: user.display_name,
     avatarUrl: user.avatar_url,
     role: user.role,
+    roleName: roleNameOf(user),
     status: user.status,
-    permissions,
+    permissions: permissionsOf(user),
     createdAt: user.created_at,
     lastLoginAt: user.last_login_at,
   };

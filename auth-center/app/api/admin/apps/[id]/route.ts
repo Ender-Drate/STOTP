@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { audit, getDb, type OAuthClient } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin";
+import { requirePermission } from "@/lib/admin";
 import { assertSameOrigin, clientIp, errorResponse, HttpError, readJson } from "@/lib/http";
 import { parseScopes, SUPPORTED_SCOPES } from "@/lib/oidc";
 import { serializeClient } from "@/lib/clients";
@@ -29,7 +29,7 @@ export async function PATCH(
 ) {
   try {
     assertSameOrigin(req);
-    const admin = await requireAdmin();
+    const admin = await requirePermission("oauth.apps.manage");
     const { id } = await context.params;
     const client = await loadClient(id);
     const body = await readJson<PatchBody>(req);
@@ -70,7 +70,7 @@ export async function DELETE(
 ) {
   try {
     assertSameOrigin(req);
-    const admin = await requireAdmin();
+    const admin = await requirePermission("oauth.apps.manage");
     const { id } = await context.params;
     const client = await loadClient(id);
     const db = getDb();

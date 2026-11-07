@@ -4,7 +4,7 @@
 
 - 标准 OIDC：授权码 + PKCE(S256)、RS256 id_token/access_token、refresh_token、JWKS、发现文档。
 - Scope：`openid`、`profile`、`email`、`head`（头像）、`permission`（权限节点）、`offline_access`。
-- 管理台：概览、OAuth2 应用（创建/编辑/密钥轮换/启停/删除）、我的授权（撤销）、用户管理（角色/状态）、个人设置。
+- 管理台：概览、OAuth2 应用（创建/编辑/密钥轮换/启停/删除）、我的授权（撤销）、用户管理（权限等级/状态）、**权限等级（RBAC）**、个人设置。
 - 登录站：登录、注册、授权同意页、退出；密码使用 scrypt 哈希，会话保存在服务端。
 - **STOTP 两步验证（可选）**：绑定设备后，登录需要密码 + STOTP App 的 6 位验证码；注册流程不变，未绑定用户仍可密码登录。
 
@@ -136,6 +136,34 @@ STOTP_LOGIN_CLIENT_SECRET=cs_...
 - 已绑定用户遇到 STOTP 不可达、assertion 验签失败或超时 → 拒绝登录（fail closed）；未绑定用户不受影响。
 - 管理员可在「用户管理」查看绑定状态并解绑。
 
+## 权限等级（RBAC）
+
+管理台使用「权限等级 + 权限节点」，而不是固定的 admin/user 两档。
+
+- **最高管理员（superadmin）**：拥有全部权限，且是唯一可以进入「权限」页创建/编辑权限等级的角色。
+- **管理员（admin）**：系统内置的日常管理等级，不能修改权限等级。
+- **普通用户（user）**：默认只有「绑定 STOTP」权限。
+- 最高管理员可以在「权限」页新建自定义等级，勾选该等级拥有的权限节点；自定义等级可以编辑/删除，
+  系统内置等级只读。
+- 用户管理页可以把用户分配到任意权限等级（仅最高管理员可改）；禁用/启用用户需要 `users.disable`。
+
+权限节点：
+
+| 节点 | 含义 |
+| --- | --- |
+| `admin.access` | 访问管理台 |
+| `users.view` | 查看用户列表 |
+| `users.manage` | 编辑用户资料/角色 |
+| `users.disable` | 禁用 / 重新启用用户 |
+| `oauth.apps.manage` | 接入 / 管理 OAuth2 应用 |
+| `stotp.bind` | 绑定自己的 STOTP 设备 |
+| `stotp.manage` | 解绑他人的 STOTP 设备 |
+| `stats.view` | 查看统计 |
+| `audit.view` | 查看审计 |
+
+从旧版本升级时，已有的 `admin` 账号会自动迁移为 `superadmin`，其它账号迁移为 `user`；
+自定义权限等级保存在 `roles` 表，用户通过 `role_id` 关联。
+
 ## 第三方接入
 
 1. 管理员在「OAuth2 应用」创建应用，填写回调地址与 scope；保存时得到的 **Client Secret 只显示一次**。
@@ -205,6 +233,14 @@ npm run e2e:stotp
 覆盖：无绑定密码登录、绑定错误码/正确码、登录 `otp_required`、错误 OTP、正确 OTP、ticket 单次使用、
 assertion 篡改/错误 aud/过期、重复绑定、用户解绑、管理员解绑、STOTP 不可达 fail closed。
 
+权限等级：
+
+```bash
+npm run e2e:rbac
+```
+
+覆盖：自定义权限等级、节点校验、系统等级只读、角色分配、页面/API 权限、禁用/启用、非最高管理员限制。
+
 ## 截图
 
 | 概览 | OAuth2 应用 |
@@ -218,6 +254,10 @@ assertion 篡改/错误 aud/过期、重复绑定、用户解绑、管理员解�
 | STOTP 两步验证 | 设置中绑定 |
 | --- | --- |
 | ![otp](docs/screenshots/stotp-otp.png) | ![settings](docs/screenshots/stotp-settings.png) |
+
+| 权限等级 | 接入文档 |
+| --- | --- |
+| ![roles](docs/screenshots/roles.png) | ![docs](docs/screenshots/docs-v2.png) |
 
 ## 已知限制
 

@@ -4,6 +4,7 @@ import { ProfileForms } from "@/app/components/ProfileForms";
 import { StotpPanel } from "@/app/components/StotpPanel";
 import { bindingView, getBinding } from "@/lib/stotp-store";
 import { stotpConfigured } from "@/lib/stotp";
+import { hasPermission } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function SettingsPage() {
       <StotpPanel
         binding={binding ? bindingView(binding) : null}
         enabled={stotpConfigured()}
+        canBind={hasPermission(user, "stotp.bind")}
       />
     </>
   );

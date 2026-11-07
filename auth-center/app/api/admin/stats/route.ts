@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin";
+import { requirePermission } from "@/lib/admin";
 import { errorResponse } from "@/lib/http";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    await requireAdmin();
+    await requirePermission("stats.view");
     const db = getDb();
     const today = new Date().toISOString().slice(0, 10);
     const one = (sql: string) => (db.prepare(sql).get() as { c: number }).c;
@@ -23,3 +23,4 @@ export async function GET() {
     return errorResponse(error);
   }
 }
+

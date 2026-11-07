@@ -15,6 +15,7 @@ import {
 } from "@/lib/http";
 import { createSession, sessionCookieOptions } from "@/lib/session";
 import { publicUser } from "@/lib/users";
+import { getRoleByKey } from "@/lib/roles";
 import { email, username } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -53,13 +54,16 @@ export async function POST(req: NextRequest) {
       throw new HttpError(409, "already_exists", "用户名或邮箱已被占用");
     }
     const now = nowIso();
+    const userRole = getRoleByKey("user");
+    if (!userRole) throw new HttpError(500, "server_error", "权限等级初始化失败");
     const result = getDb().prepare(
-      `INSERT INTO users(username, email, password_hash, display_name, role, status, permissions, created_at)
-       VALUES (?,?,?,?, 'user', 'active', ?, ?)`
+      `INSERT INTO users(username, email, password_hash, display_name, role, role_id,
+         status, permissions, created_at)
+       VALUES (?,?,?,?, 'user', ?, 'active', ?, ?)`
     ).run(name, mail, hashPassword(pass),
       typeof body.displayName === "string" && body.displayName.trim()
         ? body.displayName.trim().slice(0, 40) : name,
-      JSON.stringify(["user"]), now);
+      userRole.id, userRole.permissions, now);
     const userId = Number(result.lastInsertRowid);
     const token = createSession(userId, SESSION_TTL_SECONDS);
     audit("user_register", { userId, ip: clientIp(req) });

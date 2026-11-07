@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "@/lib/admin";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/admin";
 import { audit } from "@/lib/db";
 import {
   assertSameOrigin,
@@ -24,7 +24,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 export async function POST(req: NextRequest) {
   try {
     assertSameOrigin(req);
-    const user = await requireUser();
+    const user = await requirePermission("stotp.bind");
     if (!stotpConfigured()) {
       throw new HttpError(503, "stotp_disabled", "STOTP 未启用，请联系管理员");
     }
@@ -67,3 +67,4 @@ export async function POST(req: NextRequest) {
     return errorResponse(error);
   }
 }
+

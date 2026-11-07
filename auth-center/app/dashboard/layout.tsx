@@ -4,6 +4,7 @@ import { BRAND } from "@/lib/config";
 import { currentUser } from "@/lib/session";
 import { SidebarNav } from "@/app/components/SidebarNav";
 import { LogoutButton } from "@/app/components/LogoutButton";
+import { isSuperAdmin, permissionsOf, roleNameOf } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <div className="card-sub">统一登录中心</div>
           </div>
         </Link>
-        <SidebarNav isAdmin={user.role === "admin"} />
+        <SidebarNav permissions={permissionsOf(user)} isSuper={isSuperAdmin(user)} />
         <div className="sidebar-user">
           <div className="avatar">
             {user.avatar_url ? (
@@ -33,7 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="sidebar-user-name truncate">{name}</div>
             <div className="sidebar-user-role">
-              {user.role === "admin" ? "管理员" : "普通用户"}
+              {isSuperAdmin(user) ? "最高管理员" : roleNameOf(user)}
             </div>
           </div>
           <LogoutButton />

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { audit, getDb, nowIso, type OAuthClient, type User } from "@/lib/db";
 import { newClientId, newClientSecret, sha256 } from "@/lib/crypto";
-import { requireAdmin } from "@/lib/admin";
+import { requirePermission } from "@/lib/admin";
 import { assertSameOrigin, clientIp, errorResponse, HttpError, readJson } from "@/lib/http";
 import { parseScopes, SUPPORTED_SCOPES } from "@/lib/oidc";
 import { serializeClient } from "@/lib/clients";
@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    await requireAdmin();
+    await requirePermission("oauth.apps.manage");
     const rows = getDb().prepare(
       "SELECT * FROM oauth_clients ORDER BY id DESC"
     ).all() as unknown as OAuthClient[];
@@ -42,7 +42,7 @@ function scopesFrom(value: unknown, fallback: string[]): string[] {
 export async function POST(req: NextRequest) {
   try {
     assertSameOrigin(req);
-    const admin = await requireAdmin();
+    const admin = await requirePermission("oauth.apps.manage");
     const body = await readJson<CreateBody>(req);
     const name = text(body.name, "应用名称", 2, 60);
     const description = optionalText(body.description, 200);
@@ -73,3 +73,4 @@ export async function POST(req: NextRequest) {
     return errorResponse(error);
   }
 }
+

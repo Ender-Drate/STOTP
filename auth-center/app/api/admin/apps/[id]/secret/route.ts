@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { audit, getDb, type OAuthClient } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin";
+import { requirePermission } from "@/lib/admin";
 import { newClientSecret, sha256 } from "@/lib/crypto";
 import { assertSameOrigin, clientIp, errorResponse, HttpError } from "@/lib/http";
 
@@ -12,7 +12,7 @@ export async function POST(
 ) {
   try {
     assertSameOrigin(req);
-    const admin = await requireAdmin();
+    const admin = await requirePermission("oauth.apps.manage");
     const { id } = await context.params;
     const client = getDb().prepare("SELECT * FROM oauth_clients WHERE id = ?")
       .get(Number(id)) as unknown as OAuthClient | undefined;

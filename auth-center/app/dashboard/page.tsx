@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
 import { getDb } from "@/lib/db";
 import { parseScopes } from "@/lib/oidc";
+import { hasPermission, isSuperAdmin, permissionsOf, roleNameOf } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +27,8 @@ export default async function OverviewPage() {
   const recent = getDb().prepare(
     `SELECT event, ts FROM audit WHERE user_id = ? ORDER BY id DESC LIMIT 6`
   ).all(user.id) as unknown as Array<{ event: string; ts: string }>;
-  const permissions = (() => {
-    try {
-      return JSON.parse(user.permissions) as string[];
-    } catch {
-      return [];
-    }
-  })();
+  const permissions = permissionsOf(user);
+  const roleName = roleNameOf(user);
   const name = user.display_name || user.username;
 
   return (
@@ -60,8 +56,8 @@ export default async function OverviewPage() {
               </div>
               <div className="muted small">{user.email}</div>
             </div>
-            <span className={`pill ${user.role === "admin" ? "pill-blue" : ""}`}>
-              {user.role === "admin" ? "管理员" : "普通用户"}
+            <span className={`pill ${isSuperAdmin(user) ? "pill-blue" : ""}`}>
+              {isSuperAdmin(user) ? "最高管理员" : roleName}
             </span>
           </div>
         </div>
@@ -95,7 +91,7 @@ export default async function OverviewPage() {
               <tbody>
                 <tr><td className="muted" style={{ width: 110 }}>用户名</td><td>{user.username}</td></tr>
                 <tr><td className="muted">邮箱</td><td>{user.email}</td></tr>
-                <tr><td className="muted">角色</td><td>{user.role === "admin" ? "管理员" : "普通用户"}</td></tr>
+                <tr><td className="muted">角色</td><td>{isSuperAdmin(user) ? "最高管理员" : roleName}</td></tr>
                 <tr><td className="muted">状态</td><td><span className="pill pill-green">正常</span></td></tr>
                 <tr>
                   <td className="muted">权限</td>
@@ -142,7 +138,7 @@ export default async function OverviewPage() {
               </div>
             </div>
             <div className="btn-row">
-              {user.role === "admin" ? (
+              {hasPermission(user, "oauth.apps.manage") ? (
                 <Link className="btn btn-primary" href="/dashboard/apps">管理应用</Link>
               ) : null}
               <Link className="btn btn-ghost" href="/docs">查看文档</Link>
