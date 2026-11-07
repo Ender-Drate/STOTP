@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { CodeBlock } from "@/app/components/CodeBlock";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +74,7 @@ export default function DocsPage() {
             <span className="docs-step">01</span>
             <div>
               <h2>快速开始</h2>
-              <p>四步完成一次完整授权。</p>
+
             </div>
           </div>
 
@@ -133,7 +133,7 @@ grant_type=authorization_code
             <span className="docs-step">02</span>
             <div>
               <h2>端点</h2>
-              <p>所有路径相对于账户中心地址。</p>
+
             </div>
           </div>
           <div className="table-wrap">
@@ -159,7 +159,7 @@ grant_type=authorization_code
             <span className="docs-step">03</span>
             <div>
               <h2>Scope</h2>
-              <p>按需申请，userinfo 只返回已授权字段。</p>
+
             </div>
           </div>
           <div className="scope-grid">
@@ -177,7 +177,7 @@ grant_type=authorization_code
             <span className="docs-step">04</span>
             <div>
               <h2>PKCE 示例（Node.js）</h2>
-              <p>公共客户端必须使用 S256。</p>
+
             </div>
           </div>
           <CodeBlock label="Node.js" code={`import { createHash, randomBytes } from "node:crypto";
@@ -206,7 +206,7 @@ const tokens = await fetch("/api/oauth/token", {
             <span className="docs-step">05</span>
             <div>
               <h2>刷新与撤销</h2>
-              <p>Refresh Token 30 天，每次刷新轮换。</p>
+
             </div>
           </div>
           <CodeBlock label="刷新令牌" code={`# 前提：授权时申请了 offline_access
@@ -228,7 +228,7 @@ token=ACCESS_OR_REFRESH_TOKEN
             <span className="docs-step">06</span>
             <div>
               <h2>错误约定</h2>
-              <p>OAuth 端点与用户中心 API 分开处理。</p>
+
             </div>
           </div>
           <div className="docs-two">

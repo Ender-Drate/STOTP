@@ -161,6 +161,61 @@ export function linkProvider(providerId: number, subject: string, userId: number
   ).run(providerId, subject, userId, nowIso());
 }
 
+export function getProviderLinkByUser(
+  userId: number, providerId: number
+): { provider_id: number; subject: string; user_id: number } | undefined {
+  return getDb().prepare(
+    "SELECT * FROM provider_links WHERE user_id = ? AND provider_id = ?"
+  ).get(userId, providerId) as unknown as {
+    provider_id: number; subject: string; user_id: number;
+  } | undefined;
+}
+
+export const LINK_TICKET_TTL = 10 * 60;
+
+export function createLinkTicket(input: {
+  providerId: number; subject: string; displayName: string;
+  email: string; next: string; ip: string;
+}): string {
+  const ticket = randomToken(32);
+  const now = nowSec();
+  getDb().prepare(
+    `INSERT INTO provider_link_tickets(token_hash, provider_id, subject, display_name,
+       email, next, ip, expires_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(sha256(ticket), input.providerId, input.subject, input.displayName.slice(0, 80),
+    input.email.slice(0, 200), input.next, input.ip, now + LINK_TICKET_TTL, now);
+  getDb().prepare("DELETE FROM provider_link_tickets WHERE expires_at < ?").run(now - 60);
+  return ticket;
+}
+
+export interface LinkTicket {
+  token_hash: string;
+  provider_id: number;
+  subject: string;
+  display_name: string | null;
+  email: string | null;
+  next: string;
+  ip: string;
+  expires_at: number;
+  used: number;
+  created_at: number;
+}
+
+export function getLinkTicket(ticket: string, ip: string): LinkTicket | undefined {
+  if (!ticket) return undefined;
+  const row = getDb().prepare(
+    "SELECT * FROM provider_link_tickets WHERE token_hash = ?"
+  ).get(sha256(ticket)) as unknown as LinkTicket | undefined;
+  if (!row || row.used || row.expires_at < nowSec() || row.ip !== ip) return undefined;
+  return row;
+}
+
+export function markLinkTicketUsed(ticket: string): void {
+  getDb().prepare("UPDATE provider_link_tickets SET used = 1 WHERE token_hash = ?")
+    .run(sha256(ticket));
+}
+
 export const OAUTH_STATE_COOKIE = "ac_oauth_state";
 export const OAUTH_STATE_TTL = 10 * 60;
 

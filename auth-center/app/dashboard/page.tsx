@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
 import { getDb } from "@/lib/db";
@@ -52,7 +52,7 @@ export default async function OverviewPage() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em" }}>
-                欢迎回来，{name}
+                当前账户：{name}
               </div>
               <div className="muted small">{user.email}</div>
             </div>
@@ -132,9 +132,9 @@ export default async function OverviewPage() {
         <div className="card card-pad">
           <div className="spread">
             <div>
-              <div className="card-title">让其他应用接入</div>
+              <div className="card-title">应用接入</div>
               <div className="muted small" style={{ marginTop: 3 }}>
-                创建一个 OAuth2 应用，把 Client ID / Secret 与回调地址交给你的系统即可。
+                创建一个 OAuth2 应用，将 Client ID / Secret 与回调地址配置到目标系统。
               </div>
             </div>
             <div className="btn-row">

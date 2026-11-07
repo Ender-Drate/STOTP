@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import type { ClientView } from "@/lib/clients";
@@ -152,7 +152,7 @@ export function AppManager({ initialClients }: { initialClients: ClientView[] })
             <div>
               <div style={{ fontWeight: 650, fontSize: 13 }}>Client Secret（仅显示这一次）</div>
               <div className="hint" style={{ color: "var(--warn)" }}>
-                请立即保存到你的服务端配置中；关闭后无法再次查看。
+                请立即保存到服务端配置；关闭后无法再次查看。
               </div>
             </div>
             <button className="btn btn-sm btn-ghost" onClick={() => setSecret("")}>关闭</button>

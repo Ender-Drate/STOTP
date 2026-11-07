@@ -128,20 +128,19 @@ export function ProviderManager({
       <div className="page-head">
         <div>
           <h1 className="page-title">登录入口</h1>
-          <p className="page-desc">接入你朋友的 OAuth2 登录服务，显示在登录页</p>
+          <p className="page-desc">接入外部 OAuth2 登录服务，并显示在登录页</p>
         </div>
         <button className="btn btn-primary" onClick={startCreate}>添加登录服务</button>
       </div>
 
       <div className="card card-pad" style={{ marginBottom: 16 }}>
-        <div className="label">回调地址（填到对方后台）</div>
+        <div className="label">回调地址（配置到第三方服务）</div>
         <div className="copy-field" style={{ marginTop: 6 }}>
           <span className="mono">{callbackUrl}</span>
           <CopyButton value={callbackUrl} />
         </div>
         <p className="hint" style={{ marginTop: 8 }}>
-          对方需要返回 <code>sub</code> / <code>email</code> / <code>email_verified</code>；
-          只有已验证邮箱才能自动创建本地账号。
+          第三方服务需返回 <code>sub</code>（或 <code>id</code>）；首次登录需使用本地账户完成绑定。
         </p>
       </div>
 
@@ -161,7 +160,7 @@ export function ProviderManager({
               <label className="label">名称</label>
               <input className="input" value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                placeholder="例如：朋友的登录站" required />
+                placeholder="例如：第三方登录服务" required />
             </div>
             <div className="field">
               <label className="label">图标 URL（可选）</label>
@@ -247,7 +246,7 @@ export function ProviderManager({
           <div className="card card-pad" style={{ gridColumn: "1 / -1" }}>
             <div className="empty">
               <div className="empty-title">还没有外部登录服务</div>
-              <div className="small">点右上角「添加登录服务」接入朋友的 OAuth2。</div>
+              <div className="small">使用右上角「添加登录服务」接入外部 OAuth2 服务。</div>
             </div>
           </div>
         ) : null}

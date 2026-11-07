@@ -1,4 +1,4 @@
-/** 外部 OAuth2 登录服务端到端。需要 auth-center 已启动。 */
+/** 外部 OAuth2 登录服务端到端：首次登录必须绑定本地账户。 */
 import { randomBytes } from "node:crypto";
 import { startMockOAuth } from "./mock-oauth.mjs";
 
@@ -38,11 +38,23 @@ const admin = await json("/api/auth/login", {
 ok(admin.res.status === 200, "admin login");
 const adminCookie = admin.cookie;
 
+const localUsername = `link_${suffix}`;
+const localPassword = "link-password-123";
+const local = await json("/api/auth/register", {
+  method: "POST",
+  body: JSON.stringify({
+    username: localUsername, email: `${localUsername}@example.com`, password: localPassword,
+  }),
+});
+ok(local.res.status === 200, "create local account", localUsername);
+const localId = local.body?.user?.id;
+await json("/api/auth/logout", { method: "POST", headers: { Cookie: local.cookie } });
+
 const created = await json("/api/admin/logins", {
   method: "POST", headers: { Cookie: adminCookie },
   body: JSON.stringify({
-    name: `朋友登录 ${suffix}`,
-    iconUrl: "https://example.com/friend.png",
+    name: `第三方登录 ${suffix}`,
+    iconUrl: "https://example.com/provider.png",
     clientId: "friend-client",
     clientSecret: "friend-secret",
     authorizationUrl: `${mock.url}/authorize`,
@@ -57,7 +69,7 @@ const provider = created.body.provider;
 
 const loginPage = await fetch(BASE + "/login");
 const loginHtml = await loginPage.text();
-ok(loginHtml.includes(provider.name) && loginHtml.includes("friend.png"),
+ok(loginHtml.includes(provider.name) && loginHtml.includes("provider.png"),
   "login page shows provider + icon");
 
 async function flow() {
@@ -67,39 +79,54 @@ async function flow() {
   );
   const stateCookie = cookieOf(start);
   const authorize = await fetch(start.headers.get("location"), { redirect: "manual" });
-  const callbackUrl = authorize.headers.get("location");
-  const callback = await fetch(callbackUrl, {
+  const callback = await fetch(authorize.headers.get("location"), {
     headers: { Cookie: stateCookie }, redirect: "manual",
   });
-  return { start, callback, cookie: cookieOf(callback), location: callback.headers.get("location") || "" };
+  return {
+    start, callback, cookie: cookieOf(callback),
+    location: callback.headers.get("location") || "",
+  };
 }
 
 const first = await flow();
-ok(first.start.status >= 300 && first.start.status < 400, "start redirects to provider");
-ok(first.callback.status === 303 && first.cookie.includes("ac_session"),
-  "callback creates session", first.location);
-const me = await json("/api/auth/me", { headers: { Cookie: first.cookie } });
-ok(me.res.status === 200 && me.body?.user?.email === "friend@example.com",
-  "provider user created/linked", me.body?.user?.email);
-const firstUserId = me.body?.user?.id;
+ok(first.callback.status === 303 && first.location.includes("/login/link"),
+  "unbound provider account requires local binding", first.location);
+ok(!first.cookie.includes("ac_session"), "no session before local binding");
+const linkUrl = new URL(first.location);
+const ticket = linkUrl.searchParams.get("ticket") || "";
 
-const second = await flow();
-ok(second.callback.status === 303 && second.cookie.includes("ac_session"),
-  "second login reuses provider link");
-const me2 = await json("/api/auth/me", { headers: { Cookie: second.cookie } });
-ok(me2.body?.user?.id === firstUserId, "same local user on repeat login");
+const wrong = await json("/api/auth/link", {
+  method: "POST",
+  body: JSON.stringify({ ticket, username: localUsername, password: "wrong" }),
+});
+ok(wrong.res.status === 401, "wrong local password rejected");
+
+const linked = await json("/api/auth/link", {
+  method: "POST",
+  body: JSON.stringify({ ticket, username: localUsername, password: localPassword }),
+});
+ok(linked.res.status === 200 && linked.cookie.includes("ac_session"),
+  "local credentials bind provider account");
+const me = await json("/api/auth/me", { headers: { Cookie: linked.cookie } });
+ok(me.res.status === 200 && me.body?.user?.id === localId,
+  "logged into bound local account", me.body?.user?.username);
+
+const reused = await flow();
+ok(reused.callback.status === 303 && reused.cookie.includes("ac_session"),
+  "bound provider account logs in directly");
+const me2 = await json("/api/auth/me", { headers: { Cookie: reused.cookie } });
+ok(me2.body?.user?.id === localId, "same local user on repeat login");
 
 mock.setProfile({
-  sub: `friend-unverified-${suffix}`,
-  email: `unverified-${suffix}@example.com`,
+  sub: `friend-other-${suffix}`,
+  email: `other-${suffix}@example.com`,
   email_verified: false,
-  name: "Unverified",
+  name: "Other",
 });
-const unverified = await flow();
-ok(unverified.callback.status === 303
-  && unverified.location.includes("/login?") && unverified.location.includes("error="),
-  "unverified email rejected", unverified.location);
-ok(!unverified.cookie.includes("ac_session"), "no session for unverified email");
+const other = await flow();
+ok(other.callback.status === 303 && other.location.includes("/login/link")
+  && !other.cookie.includes("ac_session"),
+  "new provider identity still requires local binding");
 
 const loginsPage = await fetch(BASE + "/dashboard/logins", {
   headers: { Cookie: adminCookie },
