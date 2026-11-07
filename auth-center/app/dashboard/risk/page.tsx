@@ -6,7 +6,9 @@ import { getDb } from "@/lib/db";
 import { getRiskSettings, getRecentObservations, getVisitIps, ipRiskScores, RISK_LABELS, riskLevel, type RiskSettings } from "@/lib/risk";
 import { firstPublicIp } from "@/lib/ip";
 import { formatDateTime } from "@/lib/datetime";
+import { listIpRules } from "@/lib/ip-rules";
 import { RiskSettingsForm } from "@/app/components/RiskSettingsForm";
+import { IpRulesPanel } from "@/app/components/IpRulesPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,7 @@ export default async function RiskPage() {
   const scores = ipRiskScores();
   const visits = getVisitIps(settings.visitWindowHours);
   const observations = getRecentObservations(30);
+  const rules = listIpRules();
   const requestHeaders = await headers();
   const xRealIp = requestHeaders.get("x-real-ip") || "-";
   const xForwardedFor = requestHeaders.get("x-forwarded-for") || "-";
@@ -122,6 +125,15 @@ export default async function RiskPage() {
           </div>
         )}
       </div>
+
+      {hasPermission(me, "risk.manage") ? (
+        <div style={{ marginTop: 16 }}>
+          <IpRulesPanel rules={rules.map((rule) => ({
+            id: rule.id, ip: rule.ip, action: rule.action, reason: rule.reason,
+            created_by: rule.created_by, created_at: rule.created_at, expires_at: rule.expires_at,
+          }))} />
+        </div>
+      ) : null}
 
       <div className="card card-pad" style={{ marginTop: 16 }}>
         <div className="spread" style={{ marginBottom: 8 }}>

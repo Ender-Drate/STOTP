@@ -40,6 +40,23 @@ const proxiedRisk = await fetch(BASE + "/dashboard/risk", {
 const proxiedHtml = await proxiedRisk.text();
 ok(proxiedHtml.includes("203.0.113.10"), "audit stores X-Real-IP instead of 127.0.0.1");
 
+const rule = await json("/api/admin/ip-rules", {
+  method: "POST", headers: { Cookie: admin.cookie },
+  body: JSON.stringify({ ip: "203.0.113.99", action: "block", reason: "e2e" }),
+});
+ok(rule.res.status === 201 && rule.body?.rule?.action === "block", "create IP block rule");
+const blockedLogin = await json("/api/auth/login", {
+  method: "POST",
+  headers: { "X-Real-IP": "203.0.113.99" },
+  body: JSON.stringify({ username: "admin", password: ADMIN_PASSWORD }),
+});
+ok(blockedLogin.res.status === 403 && blockedLogin.body?.error?.code === "ip_blocked",
+  "blocked IP cannot login");
+const removed = await json(`/api/admin/ip-rules?id=${rule.body.rule.id}`, {
+  method: "DELETE", headers: { Cookie: admin.cookie },
+});
+ok(removed.res.status === 200, "delete IP block rule");
+
 const stats = await fetch(BASE + "/dashboard/stats", { headers: { Cookie: admin.cookie } });
 const statsHtml = await stats.text();
 ok(stats.status === 200 && statsHtml.includes("统计信息") && statsHtml.includes("CPU 使用率"),

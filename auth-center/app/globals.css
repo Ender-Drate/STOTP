@@ -701,6 +701,7 @@ select.input {
   border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.14);
   color: var(--text-2); font-size: 12px; line-height: 1.6; font-weight: 400;
   text-align: left; animation: pop-in 140ms ease-out;
+  max-height: min(360px, calc(100vh - 24px)); overflow-y: auto;
 }
 .popover-close {
   position: absolute; top: 3px; right: 5px; border: 0; background: transparent;

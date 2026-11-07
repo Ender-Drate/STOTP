@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CopyButton } from "./CopyButton";
 import { Modal, useToast } from "./Feedback";
+import { PasswordInput } from "./PasswordInput";
 
 interface ProviderView {
   id: number;
@@ -186,10 +187,14 @@ export function ProviderManager({
             </div>
             <div className="field">
               <label className="label">Client Secret</label>
-              <input className="input mono" type="password" value={draft.clientSecret}
-                onChange={(e) => setDraft({ ...draft, clientSecret: e.target.value })}
+              <PasswordInput
+                id="provider-client-secret"
+                value={draft.clientSecret}
+                onChange={(value) => setDraft({ ...draft, clientSecret: value })}
                 placeholder={draft.id ? "留空表示不修改" : ""}
-                required={!draft.id} />
+                autoComplete="new-password"
+                required={!draft.id}
+              />
             </div>
             <div className="field">
               <label className="label">授权地址</label>

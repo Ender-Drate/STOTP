@@ -14,6 +14,7 @@ import {
   safeNextPath,
 } from "@/lib/http";
 import { createSession, sessionCookieOptions } from "@/lib/session";
+import { isIpBlocked } from "@/lib/ip-rules";
 import { publicUser } from "@/lib/users";
 import { getRoleByKey } from "@/lib/roles";
 import { email, username } from "@/lib/validators";
@@ -44,6 +45,9 @@ export async function POST(req: NextRequest) {
     next = safeNextPath(body.next);
     if (!rateLimit(`register:${clientIp(req)}`, 10, 3600)) {
       throw new HttpError(429, "rate_limited", "注册过于频繁，请稍后再试");
+    }
+    if (isIpBlocked(clientIp(req))) {
+      throw new HttpError(403, "ip_blocked", "当前 IP 已被限制");
     }
     const name = username(body.username);
     const mail = email(body.email);

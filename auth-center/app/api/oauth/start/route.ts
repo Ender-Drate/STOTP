@@ -3,11 +3,17 @@ import { createHash } from "node:crypto";
 import { randomToken } from "@/lib/crypto";
 import { PUBLIC_URL } from "@/lib/config";
 import { clientIp, safeNextPath } from "@/lib/http";
+import { isIpBlocked } from "@/lib/ip-rules";
 import { consumeOAuthState, createOAuthState, getProviderByKey, OAUTH_STATE_COOKIE } from "@/lib/login-providers";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  if (isIpBlocked(clientIp(req))) {
+    return NextResponse.redirect(new URL(
+      `/login?error=${encodeURIComponent("当前 IP 已被限制")}`, PUBLIC_URL
+    ));
+  }
   const providerKey = req.nextUrl.searchParams.get("provider") || "";
   const next = safeNextPath(req.nextUrl.searchParams.get("next"));
   const provider = getProviderByKey(providerKey);
