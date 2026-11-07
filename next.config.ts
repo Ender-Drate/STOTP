@@ -17,7 +17,7 @@ const csp = [
   "connect-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",
-  "form-action 'self'",
+  "form-action 'self' https:",
   "frame-ancestors 'none'",
 ].join("; ");
 

@@ -10,7 +10,7 @@
 | H-1 | 已修复 | `clientIp()` 只读取 nginx 覆盖的 `X-Real-IP`；兼容多层代理重复追加的逗号列表；完全移除 `CF-Connecting-IP` / `X-Forwarded-For` / `Forwarded` 信任 |
 | M-1 | 已修复 | `safeNextPath()` 拒绝反斜杠、编码反斜杠/斜杠、控制字符，并校验同源 |
 | M-2 | 已修复 | `/api/oauth/head` 改为 HMAC 签名 URL；只输出 SVG，不 302 到用户 URL；OIDC `picture` 也改为签名地址 |
-| M-3 | 已修复 | Next + nginx 增加 CSP、XFO、nosniff、Referrer-Policy、Permissions-Policy、HSTS；关闭 X-Powered-By |
+| M-3 | 已修复 | Next + nginx 增加 CSP、XFO、nosniff、Referrer-Policy、Permissions-Policy、HSTS；关闭 X-Powered-By；`form-action 'self' https:` 允许 OAuth 回调重定向 |
 | M-4 | 已缓解 | 增加同源校验、IP/全局限速；未登录客户端信号最高 55 分，不能刷 critical |
 | M-5 | 已大幅缓解 | 登录不存在账号也执行 dummy scrypt；账号维度限速/失败计数/CAPTCHA；禁用账号统一 401；头像签名消除 ID 枚举 |
 | M-6 | 已修复声明 | 新增 `users.email_verified`，默认 0；OIDC/userinfo 不再硬编码 true；改邮箱自动清零 |

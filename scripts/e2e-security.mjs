@@ -26,6 +26,7 @@ const csp = headers.headers.get("content-security-policy") || "";
 ok(headers.headers.get("x-frame-options") === "DENY", "X-Frame-Options DENY");
 ok(headers.headers.get("x-content-type-options") === "nosniff", "nosniff");
 ok(csp.includes("frame-ancestors 'none'"), "CSP frame-ancestors none");
+ok(csp.includes("form-action 'self' https:"), "CSP allows OAuth HTTPS callback redirects");
 ok(!headers.headers.get("x-powered-by"), "X-Powered-By removed");
 
 const suffix = Date.now().toString(36);
