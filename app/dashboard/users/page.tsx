@@ -4,9 +4,21 @@ import { currentUser } from "@/lib/session";
 import { formatDateTime } from "@/lib/datetime";
 import { hasPermission, isSuperAdmin } from "@/lib/permissions";
 import { listRoles } from "@/lib/roles";
+import { accountRisk } from "@/lib/account-risk";
 import { UserActions } from "@/app/components/UserActions";
 
 export const dynamic = "force-dynamic";
+
+const LEVEL_TEXT: Record<string, string> = {
+  low: "低", medium: "中", high: "高", critical: "严重",
+};
+
+function riskTone(level: string): string {
+  if (level === "critical") return "pill-red";
+  if (level === "high") return "pill-amber";
+  if (level === "medium") return "pill-blue";
+  return "pill-green";
+}
 
 export default async function UsersPage({
   searchParams,
@@ -57,6 +69,7 @@ export default async function UsersPage({
               <th>ID</th>
               <th>用户</th>
               <th>邮箱</th>
+              <th>风控</th>
               <th>权限等级</th>
               <th>状态</th>
               <th>注册时间</th>
@@ -66,11 +79,17 @@ export default async function UsersPage({
           <tbody>
             {users.map((user) => {
               const role = user.role_id ? roleById.get(user.role_id) : undefined;
+              const risk = accountRisk(user, "", { ipScore: 0 });
               return (
                 <tr key={user.id}>
                   <td className="num">{user.id}</td>
                   <td style={{ fontWeight: 600 }}>{user.display_name || user.username}</td>
                   <td className="muted">{user.email}</td>
+                  <td title={risk.reasons.join("；")}>
+                    <span className={`pill ${riskTone(risk.level)}`}>
+                      {LEVEL_TEXT[risk.level]} · {risk.score}
+                    </span>
+                  </td>
                   <td>
                     <span className={`pill ${role?.key === "superadmin" ? "pill-blue" : ""}`}>
                       {role?.name || user.role}

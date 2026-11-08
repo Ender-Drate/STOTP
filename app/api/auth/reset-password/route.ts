@@ -5,6 +5,7 @@ import { assertSameOrigin, clientIp, errorResponse, HttpError, rateLimit, readJs
 import { decryptPasswordField } from "@/lib/password-crypto";
 import { verifyCaptcha } from "@/lib/captcha";
 import { requireSecondFactor } from "@/lib/reauth";
+import { bumpAccountRisk } from "@/lib/account-risk";
 import { consumePasswordReset, peekPasswordReset } from "@/lib/password-reset";
 
 export const runtime = "nodejs";
@@ -74,6 +75,8 @@ export async function POST(req: NextRequest) {
     try {
       db.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
         .run(hashPassword(next), user.id);
+      // 密码重置本身是风险事件：至少提升到 high（85），之后按天衰减。
+      bumpAccountRisk(user.id, 85);
       db.prepare("UPDATE tokens SET revoked = 1 WHERE user_id = ?").run(user.id);
       for (const table of [
         "sessions", "passkeys", "provider_links", "provider_link_tickets",
