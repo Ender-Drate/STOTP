@@ -78,5 +78,21 @@ const db = new DatabaseSync(process.env.AUTH_DB_PATH || "data/auth.db");
 const risk = db.prepare("SELECT risk_score FROM users WHERE username = ?").get(username);
 ok(Number(risk?.risk_score) >= 85, "password reset bumps account risk", String(risk?.risk_score));
 
+const target = db.prepare("SELECT id FROM users WHERE username = ?").get(username);
+const deniedClear = await json(`/api/admin/users/${target.id}/risk/clear`, {
+  method: "POST", headers: { Cookie: newLogin.cookie },
+});
+ok(deniedClear.res.status === 403, "normal user cannot clear account risk");
+const admin = await json("/api/auth/login", {
+  method: "POST",
+  body: JSON.stringify({ username: "admin", password: process.env.AUTH_ADMIN_PASSWORD || "admin1234" }),
+});
+const cleared = await json(`/api/admin/users/${target.id}/risk/clear`, {
+  method: "POST", headers: { Cookie: admin.cookie },
+});
+const clearedRisk = db.prepare("SELECT risk_score FROM users WHERE id = ?").get(target.id);
+ok(cleared.res.status === 200 && Number(clearedRisk?.risk_score) === 0,
+  "admin clears account risk");
+
 console.log(failures === 0 ? "\nALL PASSWORD RESET CHECKS PASSED" : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);
