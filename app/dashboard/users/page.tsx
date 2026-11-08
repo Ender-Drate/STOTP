@@ -113,6 +113,8 @@ export default async function UsersPage({
                       canAssignRoles={isSuperAdmin(me)}
                       canDisable={hasPermission(me, "users.disable")}
                       canDelete={isSuperAdmin(me)}
+                      canClearRisk={hasPermission(me, "risk.manage")}
+                      riskScore={Number(user.risk_score) || 0}
                     />
                   </td>
                 </tr>
