@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sha256 } from "@/lib/crypto";
-import { findUserById, getDb } from "@/lib/db";
+import { findUserById, findUserByUuid, getDb } from "@/lib/db";
 import { verifyJwt } from "@/lib/jwt";
 import { avatarUrl } from "@/lib/avatar";
 
@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
     return unauthorized();
   }
   if (claims.typ !== "access") return unauthorized();
-  const user = findUserById(Number(claims.sub));
+  const subject = String(claims.sub || "");
+  const user = findUserByUuid(subject) || findUserById(Number(subject));
   if (!user || user.status !== "active") return unauthorized();
 
   const scope = typeof claims.scope === "string" ? claims.scope.split(/\s+/) : [];
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
     }
   })();
   const data: Record<string, unknown> = {
-    sub: String(user.id),
+    sub: user.uuid || String(user.id),
     id: user.id,
   };
   if (scope.includes("profile")) {

@@ -25,8 +25,8 @@ export async function DELETE(
     const password = decryptPasswordField(
       body.password, body.password_enc, body.password_key,
     );
-    requireCurrentPassword(user, password, "passkey_delete");
-    requireSecondFactor(user, body.code || "", "passkey_delete");
+    await requireCurrentPassword(user, password, "passkey_delete");
+    await requireSecondFactor(user, body.code || "", "passkey_delete");
     const { id } = await context.params;
     if (!deletePasskey(user.id, Number(id))) {
       throw new HttpError(404, "not_found", "Passkey 不存在");

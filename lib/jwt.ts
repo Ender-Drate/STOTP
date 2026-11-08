@@ -92,7 +92,19 @@ export function verifyJwt(
   if (!valid) throw new Error("bad signature");
   const claims = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
   const now = Math.floor(Date.now() / 1000);
-  if (typeof claims.exp === "number" && now > claims.exp + 30) throw new Error("expired");
+  if (typeof claims.exp !== "number" || !Number.isFinite(claims.exp)) {
+    throw new Error("missing exp");
+  }
+  if (now > claims.exp + 30) throw new Error("expired");
+  if (typeof claims.nbf === "number" && now + 30 < claims.nbf) {
+    throw new Error("not yet valid");
+  }
+  if (typeof claims.iat === "number" && claims.iat > now + 30) {
+    throw new Error("issued in future");
+  }
+  if (typeof claims.iat === "number" && claims.iat > claims.exp) {
+    throw new Error("iat after exp");
+  }
   const expectedIssuer = options.issuer ?? PUBLIC_URL;
   if (claims.iss !== expectedIssuer) throw new Error("bad issuer");
   if (options.audience !== undefined && claims.aud !== options.audience) {

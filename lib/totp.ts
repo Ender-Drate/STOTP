@@ -1,4 +1,5 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { getDb, nowSec } from "./db";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
@@ -55,12 +56,44 @@ export function totpCode(secret: string, at = Date.now(), step = 30, digits = 6)
   return String(binary % 10 ** digits).padStart(digits, "0");
 }
 
+function codesEqual(expected: string, actual: string): boolean {
+  const left = Buffer.from(expected, "utf8");
+  const right = Buffer.from(actual, "utf8");
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
 export function verifyTotp(secret: string, code: string, window = 1): boolean {
   const normalized = code.replace(/\s/g, "");
   if (!/^\d{6}$/.test(normalized) || !secret) return false;
   const now = Date.now();
   for (let offset = -window; offset <= window; offset += 1) {
-    if (totpCode(secret, now + offset * 30 * 1000) === normalized) return true;
+    if (codesEqual(totpCode(secret, now + offset * 30 * 1000), normalized)) return true;
+  }
+  return false;
+}
+
+/**
+ * 登录/再认证使用：除时间窗外，同一用户同一 timestep 只能成功一次。
+ * 返回 true 后该 timestep 已被记录，重放同一六位码会失败。
+ */
+export function verifyTotpForUser(
+  userId: number,
+  secret: string,
+  code: string,
+  window = 1,
+): boolean {
+  const normalized = code.replace(/\s/g, "");
+  if (!/^\d{6}$/.test(normalized) || !secret) return false;
+  const now = Date.now();
+  for (let offset = -window; offset <= window; offset += 1) {
+    const at = now + offset * 30 * 1000;
+    if (!codesEqual(totpCode(secret, at), normalized)) continue;
+    const timestep = Math.floor(at / 1000 / 30);
+    const inserted = getDb().prepare(
+      `INSERT OR IGNORE INTO totp_used(user_id, timestep, used_at)
+       VALUES (?, ?, ?)`
+    ).run(userId, timestep, nowSec());
+    return Number(inserted.changes) === 1;
   }
   return false;
 }

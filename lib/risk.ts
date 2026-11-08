@@ -133,6 +133,17 @@ export function captchaRequiredFor(key: string): boolean {
   return getLoginFailureCount(key) >= getRiskSettings().captchaAfterFailures;
 }
 
+/** 同一 IP 在失败窗口内命中过多少个不同账号；用于横向撞库的 IP 级验证码。 */
+export function ipFailureAccounts(ip: string): number {
+  const settings = getRiskSettings();
+  const since = new Date(Date.now() - settings.loginFailWindowSeconds * 1000).toISOString();
+  const row = getDb().prepare(
+    `SELECT COUNT(DISTINCT detail) AS c FROM audit
+     WHERE event = 'login_failed' AND ip = ? AND ts >= ? AND detail IS NOT NULL`
+  ).get(ip, since) as { c: number } | undefined;
+  return Number(row?.c) || 0;
+}
+
 export function isPrivateIp(ip: string): boolean {
   return isPrivateIpImpl(ip);
 }

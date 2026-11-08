@@ -32,8 +32,8 @@ function base32Decode(text) {
   return Buffer.from(out);
 }
 
-function totp(secret) {
-  const counter = Math.floor(Date.now() / 1000 / 30);
+function totp(secret, offset = 0) {
+  const counter = Math.floor(Date.now() / 1000 / 30) + offset;
   const buf = Buffer.alloc(8);
   buf.writeBigUInt64BE(BigInt(counter));
   const hmac = createHmac("sha1", base32Decode(secret)).update(buf).digest();
@@ -167,7 +167,7 @@ const gatedWrong = await json("/api/auth/login/otp", {
 ok(gatedWrong.res.status === 401, "provider TOTP wrong code rejected");
 const gatedOtp = await json("/api/auth/login/otp", {
   method: "POST",
-  body: JSON.stringify({ ticket: gatedTicket, code: totp(secret), next: "/dashboard" }),
+  body: JSON.stringify({ ticket: gatedTicket, code: totp(secret, 1), next: "/dashboard" }),
 });
 ok(gatedOtp.res.status === 200 && gatedOtp.cookie.includes("ac_session"),
   "provider TOTP creates session");
@@ -220,7 +220,7 @@ ok(otherLink.res.status === 200 && otherLink.body?.otp_required === true
   "binding a TOTP account moves to second step", otherLink.text.slice(0, 80));
 const otherOtp = await json("/api/auth/link/otp", {
   method: "POST",
-  body: JSON.stringify({ ticket: otherTicket, code: totp(secret), next: "/dashboard" }),
+  body: JSON.stringify({ ticket: otherTicket, code: totp(secret, -1), next: "/dashboard" }),
 });
 ok(otherOtp.res.status === 200 && otherOtp.cookie.includes("ac_session"),
   "binding TOTP completes and creates session");

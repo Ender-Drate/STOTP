@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
     const password = decryptPasswordField(
       body.password, body.password_enc, body.password_key,
     );
-    requireCurrentPassword(user, password, "passkey_add");
-    requireSecondFactor(user, body.code || "", "passkey_add");
+    await requireCurrentPassword(user, password, "passkey_add");
+    await requireSecondFactor(user, body.code || "", "passkey_add");
     const existing = listPasskeys(user.id);
     const options = await generateRegistrationOptions({
       rpName: RP_NAME,

@@ -133,13 +133,31 @@ ok(tokenRes.status === 200 && Boolean(tokens.access_token), "token exchange",
 ok(Boolean(tokens.id_token), "id_token issued");
 const idPayload = JSON.parse(Buffer.from(tokens.id_token.split(".")[1], "base64url"));
 ok(idPayload.nonce === nonce, "id_token carries nonce");
+ok(idPayload.azp === client.clientId, "id_token carries azp");
+ok(typeof idPayload.at_hash === "string" && idPayload.at_hash.length === 22,
+  "id_token carries at_hash");
+const accessHash = createHash("sha256").update(tokens.access_token).digest().subarray(0, 16)
+  .toString("base64url");
+ok(idPayload.at_hash === accessHash, "id_token at_hash matches access token");
 ok(Boolean(tokens.refresh_token), "refresh_token issued (offline_access)");
+
+const codeReplay = await fetch(BASE + "/api/oauth/token", {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: form({
+    grant_type: "authorization_code", code,
+    redirect_uri: "http://localhost:3100/callback",
+    client_id: client.clientId, client_secret: secret, code_verifier: verifier,
+  }),
+});
+ok(codeReplay.status === 400, "authorization code cannot be replayed");
 
 const userinfo = await fetch(BASE + "/api/oauth/userinfo", {
   headers: { Authorization: `Bearer ${tokens.access_token}` },
 });
 const profile = await userinfo.json();
 ok(userinfo.status === 200, "userinfo 200");
+ok(profile.sub === idPayload.sub, "userinfo sub matches id_token");
 ok(profile.username === username, "userinfo username", profile.username);
 ok(profile.email === `${username}@example.com`, "userinfo email");
 ok(profile.email_verified === false, "email_verified is false without verification");
@@ -164,6 +182,28 @@ const refreshRes = await fetch(BASE + "/api/oauth/token", {
 const refreshed = await refreshRes.json();
 ok(refreshRes.status === 200 && refreshed.access_token !== tokens.access_token,
   "refresh rotates access token");
+const refreshReplay = await fetch(BASE + "/api/oauth/token", {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: form({
+    grant_type: "refresh_token",
+    refresh_token: tokens.refresh_token,
+    client_id: client.clientId,
+    client_secret: secret,
+  }),
+});
+ok(refreshReplay.status === 400, "used refresh_token rejected");
+const familyRevoked = await fetch(BASE + "/api/oauth/token", {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: form({
+    grant_type: "refresh_token",
+    refresh_token: refreshed.refresh_token,
+    client_id: client.clientId,
+    client_secret: secret,
+  }),
+});
+ok(familyRevoked.status === 400, "refresh reuse revokes token family");
 
 const revokeRes = await fetch(BASE + "/api/oauth/revoke", {
   method: "POST",
@@ -200,12 +240,26 @@ ok(publicApp.res.status === 201 && !publicApp.body?.clientSecret, "public client
 const publicClient = publicApp.body.client;
 const publicVerifier = randomBytes(32).toString("base64url");
 const publicChallenge = createHash("sha256").update(publicVerifier).digest("base64url");
+const publicState = randomBytes(8).toString("hex");
+const publicNoState = await fetch(
+  `${BASE}/api/oauth/authorize?` + form({
+    response_type: "code",
+    client_id: publicClient.clientId,
+    redirect_uri: "http://localhost:3100/public-callback",
+    scope: "openid profile",
+    code_challenge: publicChallenge,
+    code_challenge_method: "S256",
+  }),
+  { headers: { Cookie: userCookie }, redirect: "manual" }
+);
+ok(publicNoState.status === 400, "public client requires state");
 const publicAuthorize = await fetch(
   `${BASE}/api/oauth/authorize?` + form({
     response_type: "code",
     client_id: publicClient.clientId,
     redirect_uri: "http://localhost:3100/public-callback",
     scope: "openid profile",
+    state: publicState,
     code_challenge: publicChallenge,
     code_challenge_method: "S256",
   }),
@@ -225,6 +279,7 @@ const publicApprove = await fetch(BASE + "/api/oauth/authorize", {
     client_id: publicClient.clientId,
     redirect_uri: "http://localhost:3100/public-callback",
     scope: "openid profile",
+    state: publicState,
     code_challenge: publicChallenge,
     code_challenge_method: "S256",
     decision: "allow",

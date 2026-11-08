@@ -5,7 +5,8 @@ import { assertSameOrigin, clientIp, errorResponse, HttpError, readJson } from "
 import { getDb } from "@/lib/db";
 import { decryptPasswordField } from "@/lib/password-crypto";
 import { requireCurrentPassword } from "@/lib/reauth";
-import { verifyTotp } from "@/lib/totp";
+import { verifyTotpForUser } from "@/lib/totp";
+import { encryptTotpSecret } from "@/lib/totp-secret";
 import { clearPendingTotp, getPendingTotp } from "@/lib/totp-pending";
 
 export const runtime = "nodejs";
@@ -28,16 +29,16 @@ export async function POST(req: NextRequest) {
     const password = decryptPasswordField(
       body.password, body.password_enc, body.password_key,
     );
-    requireCurrentPassword(user, password, "totp_enable");
+    await requireCurrentPassword(user, password, "totp_enable");
     const secret = getPendingTotp(user.id);
     if (!secret) {
       throw new HttpError(400, "totp_setup_expired", "TOTP 初始化已过期，请重新生成二维码");
     }
     const code = (body.code || "").trim();
-    if (!verifyTotp(secret, code)) {
+    if (!verifyTotpForUser(user.id, secret, code)) {
       throw new HttpError(400, "otp_invalid", "验证码不正确，请确认手机时间");
     }
-    getDb().prepare("UPDATE users SET totp_secret = ? WHERE id = ?").run(secret, user.id);
+    getDb().prepare("UPDATE users SET totp_secret = ? WHERE id = ?").run(encryptTotpSecret(secret), user.id);
     clearPendingTotp(user.id);
     audit("totp_enable", { userId: user.id, ip: clientIp(req) });
     return NextResponse.json({ ok: true });

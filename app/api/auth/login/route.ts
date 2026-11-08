@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PUBLIC_URL, SESSION_TTL_SECONDS } from "@/lib/config";
-import { hashPassword, verifyPassword } from "@/lib/crypto";
+import { hashPasswordSync, verifyPassword } from "@/lib/crypto";
 import { audit, findUserByUsername, getDb, nowIso } from "@/lib/db";
 import {
   assertSameOrigin,
@@ -21,13 +21,13 @@ import { decryptPasswordField } from "@/lib/password-crypto";
 import { verifyCaptcha } from "@/lib/captcha";
 import {
   accountFailureKey, captchaRequiredFor, clearLoginFailures, getRiskSettings,
-  loginFailureKey, recordLoginFailure,
+  ipFailureAccounts, loginFailureKey, recordLoginFailure,
 } from "@/lib/risk";
 
 export const runtime = "nodejs";
 
 // 用户不存在时也执行一次 scrypt，避免用响应耗时枚举账号。
-const DUMMY_HASH = hashPassword("not-a-real-user-password");
+const DUMMY_HASH = hashPasswordSync("not-a-real-user-password");
 
 interface Body {
   username?: string;
@@ -72,8 +72,10 @@ export async function POST(req: NextRequest) {
     const candidate = findUserByUsername(identifier);
     // 用户名和邮箱命中同一账号时共用一个账号维度计数
     const accountKey = accountFailureKey(candidate ? `user:${candidate.id}` : `id:${identifier.toLowerCase()}`);
-    const ipFailureKey = loginFailureKey(ip, `id:${identifier.toLowerCase()}`);
-    if (!rateLimit(`login:ip:${ip}:${identifier}`, 10, 300)
+    const identifierFailureKey = loginFailureKey(ip, `id:${identifier.toLowerCase()}`);
+    const ipWideCaptcha = process.env.AUTH_E2E !== "1" && ipFailureAccounts(ip) >= 2;
+    if (!rateLimit(`login:ip:${ip}`, 30, 300)
+      || !rateLimit(`login:ip:${ip}:${identifier}`, 10, 300)
       || !rateLimit(`login:account:${accountKey}`, 30, 300)) {
       throw new HttpError(429, "rate_limited", "尝试过于频繁，请 5 分钟后再试");
     }
@@ -82,8 +84,9 @@ export async function POST(req: NextRequest) {
       throw new HttpError(403, "ip_blocked", "当前 IP 已被限制，请联系管理员");
     }
     // 同一个账号无论用用户名还是邮箱登录，共用失败计数
-    const failureKey = candidate ? loginFailureKey(ip, `user:${candidate.id}`) : ipFailureKey;
-    if (captchaRequiredFor(accountKey) || captchaRequiredFor(failureKey)) {
+    const failureKey = candidate ? loginFailureKey(ip, `user:${candidate.id}`) : identifierFailureKey;
+    if (captchaRequiredFor(accountKey) || captchaRequiredFor(failureKey)
+      || ipWideCaptcha) {
       const captchaTicket = typeof body.captchaTicket === "string" ? body.captchaTicket : "";
       const captchaCode = typeof body.captchaCode === "string" ? body.captchaCode : "";
       if (!captchaTicket || !captchaCode) {
@@ -100,8 +103,8 @@ export async function POST(req: NextRequest) {
     const user = candidate;
     // 常数时间对齐：账号不存在时也对固定 dummy hash 做一次 scrypt。
     const passwordOk = user
-      ? verifyPassword(password, user.password_hash)
-      : (verifyPassword(password, DUMMY_HASH), false);
+      ? await verifyPassword(password, user.password_hash)
+      : (await verifyPassword(password, DUMMY_HASH), false);
     if (!user || !passwordOk) {
       const ipCount = recordLoginFailure(failureKey);
       const accountCount = recordLoginFailure(accountKey);

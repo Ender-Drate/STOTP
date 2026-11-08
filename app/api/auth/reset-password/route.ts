@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const highRisk = record.risk_level === "high" || record.risk_level === "critical";
     if (highRisk) {
       if (user.totp_secret) {
-        requireSecondFactor(user, body.code || "", "password_reset");
+        await requireSecondFactor(user, body.code || "", "password_reset");
       } else if (!E2E) {
         const ticket = body.captchaTicket || "";
         const code = body.captchaCode || "";
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     db.exec("BEGIN IMMEDIATE");
     try {
       db.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
-        .run(hashPassword(next), user.id);
+        .run(await hashPassword(next), user.id);
       // 密码重置本身是风险事件：至少提升到 high（85），之后按天衰减。
       bumpAccountRisk(user.id, 85);
       db.prepare("UPDATE tokens SET revoked = 1 WHERE user_id = ?").run(user.id);
