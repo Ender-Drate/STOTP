@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { PUBLIC_URL, SESSION_TTL_SECONDS } from "@/lib/config";
 import { hashPassword } from "@/lib/crypto";
 import { audit, findUserByUsername, getDb, nowIso } from "@/lib/db";
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
     if (REQUIRE_EMAIL_VERIFICATION && !mailConfigured()) {
       throw new HttpError(503, "mail_unavailable", "邮件服务未配置，暂时无法开放注册");
     }
-    const passwordHash = hashPassword(pass);
+    const passwordHash = await hashPassword(pass);
     if (findUserByUsername(name) || findUserByUsername(mail)) {
       // 不明确区分用户名/邮箱占用，降低账号枚举质量
       throw new HttpError(400, "invalid_request", "注册信息不可用，请更换用户名或邮箱");
@@ -103,10 +104,10 @@ export async function POST(req: NextRequest) {
     if (!userRole) throw new HttpError(500, "server_error", "权限等级初始化失败");
     const status = REQUIRE_EMAIL_VERIFICATION ? "pending" : "active";
     const result = getDb().prepare(
-      `INSERT INTO users(username, email, password_hash, display_name, role, role_id,
+      `INSERT INTO users(uuid, username, email, password_hash, display_name, role, role_id,
          status, permissions, email_verified, created_at)
-       VALUES (?,?,?,?, 'user', ?, ?, ?, 0, ?)`
-    ).run(name, mail, passwordHash,
+       VALUES (?,?,?,?,?, 'user', ?, ?, ?, 0, ?)`
+    ).run(randomUUID(), name, mail, passwordHash,
       typeof body.displayName === "string" && body.displayName.trim()
         ? body.displayName.trim().slice(0, 40) : name,
       userRole.id, status, userRole.permissions, now);

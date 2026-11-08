@@ -101,11 +101,15 @@ export function validateAuthorize(params: URLSearchParams): AuthorizeInput {
   if (client.is_public && (!challenge || method !== "S256")) {
     throw new HttpError(400, "invalid_request", "公共客户端必须使用 PKCE(S256)");
   }
+  const state = params.get("state");
+  if (client.is_public && !state) {
+    throw new HttpError(400, "invalid_request", "公共客户端必须提供 state");
+  }
   return {
     client,
     redirectUri,
     scopes,
-    state: params.get("state"),
+    state,
     codeChallenge: challenge,
     codeChallengeMethod: method,
     nonce: params.get("nonce"),
@@ -188,9 +192,10 @@ export function issueTokens(
   const scopes = parseScopes(scope);
   const now = nowSec();
   const jti = randomToken(16);
+  const subject = user.uuid || String(user.id);
   const accessClaims: Record<string, unknown> = {
     iss: PUBLIC_URL,
-    sub: String(user.id),
+    sub: subject,
     aud: client.client_id,
     scope,
     iat: now,
@@ -220,11 +225,13 @@ export function issueTokens(
   if (scopes.includes("openid")) {
     const claims: Record<string, unknown> = {
       iss: PUBLIC_URL,
-      sub: String(user.id),
+      sub: subject,
       aud: client.client_id,
+      azp: client.client_id,
       iat: now,
       exp: now + ACCESS_TOKEN_TTL,
       auth_time: now,
+      at_hash: Buffer.from(sha256(accessToken), "hex").subarray(0, 16).toString("base64url"),
       typ: "id",
       ...profileClaims(user, scopes),
     };

@@ -1,8 +1,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
-import { hashPassword } from "./crypto";
+import { hashPasswordSync } from "./crypto";
+import { encryptTotpSecret } from "./totp-secret";
 import { ALL_PERMISSION_KEYS, DEFAULT_ROLE_PERMISSIONS } from "./permission-defs";
 
 export type Role = string;
@@ -21,6 +22,7 @@ export type UserStatus = "active" | "disabled" | "pending";
 
 export interface User {
   id: number;
+  uuid: string;
   username: string;
   email: string;
   password_hash: string;
@@ -86,6 +88,7 @@ CREATE TABLE IF NOT EXISTS roles (
 
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uuid TEXT,
   username TEXT NOT NULL UNIQUE COLLATE NOCASE,
   email TEXT NOT NULL UNIQUE COLLATE NOCASE,
   password_hash TEXT NOT NULL,
@@ -223,6 +226,13 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   created_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS totp_used (
+  user_id INTEGER NOT NULL,
+  timestep INTEGER NOT NULL,
+  used_at INTEGER NOT NULL,
+  PRIMARY KEY(user_id, timestep)
+);
+
 CREATE TABLE IF NOT EXISTS login_providers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   key TEXT NOT NULL UNIQUE,
@@ -351,7 +361,22 @@ CREATE INDEX IF NOT EXISTS idx_challenges_expiry ON login_challenges(expires_at)
 CREATE INDEX IF NOT EXISTS idx_risk_observations_ip_ts ON risk_observations(ip, ts);
 `;
 
-const globalForDb = globalThis as unknown as { __authCenterDb?: DatabaseSync };
+const globalForDb = globalThis as unknown as {
+  __authCenterDb?: DatabaseSync;
+  __authCenterCleanupTimer?: ReturnType<typeof setInterval>;
+};
+
+export function cleanupExpired(db: DatabaseSync = getDb()): void {
+  const now = nowSec();
+  for (const table of [
+    "auth_codes", "tokens", "sessions", "login_challenges", "webauthn_challenges",
+    "email_verification_tokens", "password_reset_tokens", "captcha_challenges",
+    "provider_link_tickets", "totp_pending",
+  ]) {
+    db.prepare(`DELETE FROM ${table} WHERE expires_at < ?`).run(now);
+  }
+  db.prepare("DELETE FROM totp_used WHERE used_at < ?").run(now - 300);
+}
 
 function ensureRoles(db: DatabaseSync) {
   const now = nowIso();
@@ -413,11 +438,12 @@ function ensureAdmin(db: DatabaseSync) {
   const superRole = db.prepare("SELECT id FROM roles WHERE key = 'superadmin'").get() as {
     id: number;
   };
+  const uuid = randomUUID();
   db.prepare(
-    `INSERT INTO users(username, email, password_hash, display_name, role, role_id,
+    `INSERT INTO users(uuid, username, email, password_hash, display_name, role, role_id,
        status, permissions, created_at)
-     VALUES (?, ?, ?, ?, 'superadmin', ?, 'active', ?, ?)`
-  ).run(username, email, hashPassword(password), username, superRole.id,
+     VALUES (?, ?, ?, ?, ?, 'superadmin', ?, 'active', ?, ?)`
+  ).run(uuid, username, email, hashPasswordSync(password), username, superRole.id,
     JSON.stringify(ALL_PERMISSION_KEYS), now);
   if (!process.env.AUTH_ADMIN_PASSWORD) {
     console.warn(`[auth-center] 已创建管理员 ${username} / ${password}（请尽快修改密码）`);
@@ -448,6 +474,15 @@ export function getDb(): DatabaseSync {
   if (!userColumns.some((column) => column.name === "risk_updated_at")) {
     db.exec("ALTER TABLE users ADD COLUMN risk_updated_at TEXT");
   }
+  if (!userColumns.some((column) => column.name === "uuid")) {
+    db.exec("ALTER TABLE users ADD COLUMN uuid TEXT");
+  }
+  const missingUuid = db.prepare("SELECT id FROM users WHERE uuid IS NULL OR uuid = ''")
+    .all() as Array<{ id: number }>;
+  for (const row of missingUuid) {
+    db.prepare("UPDATE users SET uuid = ? WHERE id = ?").run(randomUUID(), row.id);
+  }
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_uuid ON users(uuid)");
   const challengeColumns = db.prepare("PRAGMA table_info(login_challenges)")
     .all() as Array<{ name: string }>;
   if (!challengeColumns.some((column) => column.name === "method")) {
@@ -471,7 +506,25 @@ export function getDb(): DatabaseSync {
   db.exec("CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)");
   ensureRoles(db);
   ensureAdmin(db);
+  const plaintextTotp = db.prepare(
+    "SELECT id, totp_secret FROM users WHERE totp_secret IS NOT NULL AND totp_secret NOT LIKE 'v1.%'"
+  ).all() as unknown as Array<{ id: number; totp_secret: string }>;
+  for (const row of plaintextTotp) {
+    db.prepare("UPDATE users SET totp_secret = ? WHERE id = ?")
+      .run(encryptTotpSecret(row.totp_secret), row.id);
+  }
+  cleanupExpired(db);
   globalForDb.__authCenterDb = db;
+  if (!globalForDb.__authCenterCleanupTimer) {
+    globalForDb.__authCenterCleanupTimer = setInterval(() => {
+      try {
+        cleanupExpired(db);
+      } catch (error) {
+        console.error("[auth-center] cleanup failed", error);
+      }
+    }, 24 * 3600 * 1000);
+    globalForDb.__authCenterCleanupTimer.unref?.();
+  }
   return db;
 }
 
@@ -482,6 +535,10 @@ export function findUserByUsername(username: string): User | undefined {
 
 export function findUserById(id: number): User | undefined {
   return getDb().prepare("SELECT * FROM users WHERE id = ?").get(id) as unknown as User | undefined;
+}
+
+export function findUserByUuid(uuid: string): User | undefined {
+  return getDb().prepare("SELECT * FROM users WHERE uuid = ?").get(uuid) as unknown as User | undefined;
 }
 
 export function countUsers(): number {

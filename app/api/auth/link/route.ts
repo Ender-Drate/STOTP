@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const provider = getProvider(row.provider_id);
     if (!provider || !provider.enabled) throw new HttpError(400, "provider_disabled", "登录服务已停用");
     const user = findUserByUsername(identifier);
-    if (!user || !verifyPassword(password, user.password_hash)) {
+    if (!user || !(await verifyPassword(password, user.password_hash))) {
       throw new HttpError(401, "invalid_credentials", "本地账号或密码不正确");
     }
     if (user.status !== "active") throw new HttpError(403, "account_disabled", "账号已被禁用");

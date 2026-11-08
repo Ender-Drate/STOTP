@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      AUTH_E2E: "1"
+      AUTH_ADMIN_PASSWORD: "admin1234"
+      AUTH_PUBLIC_URL: "http://127.0.0.1:3100"
+      AUTH_DATA_DIR: /tmp/auth-center-data
+      AUTH_REQUIRE_EMAIL_VERIFICATION: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Start auth-center
+        run: |
+          npm run start > /tmp/auth-center.log 2>&1 &
+          echo $! > /tmp/auth-center.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3100/login >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/auth-center.log
+          exit 1
+      - run: npm run e2e:security
+      - run: npm run e2e:rbac
+      - run: npm run e2e
+      - name: Stop auth-center
+        if: always()
+        run: kill "$(cat /tmp/auth-center.pid)" 2>/dev/null || true

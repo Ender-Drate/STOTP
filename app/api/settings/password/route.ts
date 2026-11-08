@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     const next = decryptPasswordField(
       body.newPassword, body.newPassword_enc, body.password_key, "新密码",
     );
-    requireCurrentPassword(user, current, "password_change");
-    requireSecondFactor(user, body.code || "", "password_change");
+    await requireCurrentPassword(user, current, "password_change");
+    await requireSecondFactor(user, body.code || "", "password_change");
     if (next.length < 10) {
       throw new HttpError(400, "invalid_request", "新密码至少 10 位");
     }
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     db.exec("BEGIN IMMEDIATE");
     try {
       db.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
-        .run(hashPassword(next), user.id);
+        .run(await hashPassword(next), user.id);
       // 密码轮换后，所有旧凭据都必须失效，不能只删 session。
       db.prepare("UPDATE tokens SET revoked = 1 WHERE user_id = ?").run(user.id);
       db.prepare("DELETE FROM passkeys WHERE user_id = ?").run(user.id);

@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
     const password = decryptPasswordField(
       body.password, body.password_enc, body.password_key,
     );
-    requireCurrentPassword(user, password, "totp_disable");
-    requireSecondFactor(user, body.code || "", "totp_disable");
+    await requireCurrentPassword(user, password, "totp_disable");
+    await requireSecondFactor(user, body.code || "", "totp_disable");
     getDb().prepare("UPDATE users SET totp_secret = NULL WHERE id = ?").run(user.id);
     clearPendingTotp(user.id);
     audit("totp_disable", { userId: user.id, ip: clientIp(req) });

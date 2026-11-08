@@ -8,7 +8,8 @@ import {
   getLinkTicket, getProvider, getProviderLinkByUser, linkProvider, markLinkTicketUsed,
 } from "@/lib/login-providers";
 import { createSession, sessionCookieOptions } from "@/lib/session";
-import { verifyTotp } from "@/lib/totp";
+import { verifyTotpForUser } from "@/lib/totp";
+import { decryptTotpSecret } from "@/lib/totp-secret";
 import { isIpBlocked } from "@/lib/ip-rules";
 import { publicUser } from "@/lib/users";
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
       throw new HttpError(400, "totp_disabled", "该账号未启用 TOTP，请重新绑定");
     }
     if (!code) throw new HttpError(400, "otp_required", "请输入动态验证码");
-    if (!verifyTotp(user.totp_secret, code)) {
+    if (!verifyTotpForUser(user.id, decryptTotpSecret(user.totp_secret), code)) {
       audit("totp_login_deny", {
         userId: user.id, ip: clientIp(req), detail: "provider_link",
       });

@@ -102,12 +102,26 @@ const badOtp = await json("/api/auth/login/otp", {
 ok(badOtp.res.status === 401, "wrong TOTP rejected");
 const goodOtp = await json("/api/auth/login/otp", {
   method: "POST",
-  body: JSON.stringify({ ticket, code: totp(secret), next: "/dashboard" }),
+  body: JSON.stringify({ ticket, code: totp(secret, 1), next: "/dashboard" }),
 });
 ok(goodOtp.res.status === 200 && goodOtp.cookie.includes("ac_session"),
   "correct TOTP creates session");
 const me = await json("/api/auth/me", { headers: { Cookie: goodOtp.cookie } });
 ok(me.res.status === 200 && me.body?.user?.username === username, "session valid");
+
+const { DatabaseSync } = await import("node:sqlite");
+const db = new DatabaseSync(process.env.AUTH_DB_PATH || "data/auth.db");
+const storedSecret = db.prepare("SELECT totp_secret FROM users WHERE username = ?").get(username);
+ok(String(storedSecret?.totp_secret || "").startsWith("v1."), "TOTP secret encrypted at rest");
+
+const replayLogin = await json("/api/auth/login", {
+  method: "POST", body: JSON.stringify({ username, password }),
+});
+const replayCode = await json("/api/auth/login/otp", {
+  method: "POST",
+  body: JSON.stringify({ ticket: replayLogin.body?.ticket, code: totp(secret, 1), next: "/dashboard" }),
+});
+ok(replayCode.res.status === 401, "same TOTP timestep cannot be replayed");
 const replay = await json("/api/auth/login/otp", {
   method: "POST",
   body: JSON.stringify({ ticket, code: totp(secret), next: "/dashboard" }),
@@ -116,12 +130,12 @@ ok(replay.res.status === 401, "TOTP ticket is single-use");
 
 const badDisable = await json("/api/settings/totp/disable", {
   method: "POST", headers: { Cookie: goodOtp.cookie },
-  body: JSON.stringify({ password: "wrong", code: totp(secret) }),
+  body: JSON.stringify({ password: "wrong", code: totp(secret, -1) }),
 });
 ok(badDisable.res.status === 400, "disable requires password");
 const disable = await json("/api/settings/totp/disable", {
   method: "POST", headers: { Cookie: goodOtp.cookie },
-  body: JSON.stringify({ password, code: totp(secret) }),
+  body: JSON.stringify({ password, code: totp(secret, -1) }),
 });
 ok(disable.res.status === 200, "disable TOTP");
 await json("/api/auth/logout", {

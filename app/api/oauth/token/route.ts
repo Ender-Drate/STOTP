@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sha256 } from "@/lib/crypto";
-import { findUserById, getDb, nowSec } from "@/lib/db";
+import { audit, findUserById, getDb, nowSec } from "@/lib/db";
 import { HttpError, clientIp, rateLimit } from "@/lib/http";
 import {
   authenticateClient,
@@ -16,6 +16,12 @@ function oauthError(status: number, error: string, description: string): NextRes
     { error, error_description: description },
     { status, headers: { "Cache-Control": "no-store", Pragma: "no-cache" } }
   );
+}
+
+function revokeTokenFamily(userId: number, clientId: string, detail: string): void {
+  getDb().prepare("UPDATE tokens SET revoked = 1 WHERE user_id = ? AND client_id = ?")
+    .run(userId, clientId);
+  audit("refresh_reuse", { userId, clientId, detail });
 }
 
 export async function POST(req: NextRequest) {
@@ -51,10 +57,15 @@ export async function POST(req: NextRequest) {
       } else if (client.is_public) {
         return oauthError(400, "invalid_grant", "公共客户端必须使用 PKCE");
       }
-      getDb().prepare("UPDATE auth_codes SET used = 1 WHERE code_hash = ?").run(sha256(code));
       const user = findUserById(row.user_id);
       if (!user || user.status !== "active") {
         return oauthError(400, "invalid_grant", "用户不存在或已被禁用");
+      }
+      const consumed = getDb().prepare(
+        "UPDATE auth_codes SET used = 1 WHERE code_hash = ? AND used = 0"
+      ).run(sha256(code));
+      if (Number(consumed.changes) !== 1) {
+        return oauthError(400, "invalid_grant", "授权码无效或已过期");
       }
       getDb().prepare("UPDATE oauth_clients SET last_used_at = ? WHERE client_id = ?")
         .run(new Date().toISOString(), client.client_id);
@@ -70,7 +81,14 @@ export async function POST(req: NextRequest) {
       ).get(sha256(refreshToken)) as {
         client_id: string; user_id: number; scope: string; expires_at: number; revoked: number;
       } | undefined;
-      if (!row || row.revoked || row.expires_at < nowSec()) {
+      if (!row) {
+        return oauthError(400, "invalid_grant", "refresh_token 无效或已过期");
+      }
+      if (row.revoked) {
+        revokeTokenFamily(row.user_id, row.client_id, "reuse_revoked");
+        return oauthError(400, "invalid_grant", "refresh_token 已被撤销");
+      }
+      if (row.expires_at < nowSec()) {
         return oauthError(400, "invalid_grant", "refresh_token 无效或已过期");
       }
       if (row.client_id !== client.client_id) {
@@ -80,8 +98,6 @@ export async function POST(req: NextRequest) {
       if (!user || user.status !== "active") {
         return oauthError(400, "invalid_grant", "用户不存在或已被禁用");
       }
-      getDb().prepare("UPDATE tokens SET revoked = 1 WHERE token_hash = ?")
-        .run(sha256(refreshToken));
       const requested = form.get("scope");
       let scope = row.scope;
       if (requested) {
@@ -91,6 +107,13 @@ export async function POST(req: NextRequest) {
           return oauthError(400, "invalid_scope", "请求的 scope 超出原授权");
         }
         scope = scopes.join(" ");
+      }
+      const rotated = getDb().prepare(
+        "UPDATE tokens SET revoked = 1 WHERE token_hash = ? AND revoked = 0"
+      ).run(sha256(refreshToken));
+      if (Number(rotated.changes) !== 1) {
+        revokeTokenFamily(row.user_id, row.client_id, "reuse_race");
+        return oauthError(400, "invalid_grant", "refresh_token 已被撤销");
       }
       return NextResponse.json(issueTokens(user, client, scope, null), {
         headers: { "Cache-Control": "no-store", Pragma: "no-cache" },

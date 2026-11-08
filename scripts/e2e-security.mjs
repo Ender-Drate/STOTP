@@ -112,6 +112,12 @@ const csrfLogout = await fetch(BASE + "/api/auth/logout", {
 });
 ok(csrfLogout.status === 403, "cross-origin logout rejected");
 
+const passkeyOrigin = await fetch(BASE + "/api/auth/passkey/options", {
+  method: "POST",
+  headers: { Origin: "https://evil.example" },
+});
+ok(passkeyOrigin.status === 403, "passkey options reject cross-origin POST");
+
 // M-4：未登录客户端信号不能把任意 IP 刷成 critical。
 const risk = await json("/api/risk/observe", {
   method: "POST",

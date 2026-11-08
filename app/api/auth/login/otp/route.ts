@@ -14,7 +14,8 @@ import {
 } from "@/lib/http";
 import { failChallenge, getChallenge, markChallengeUsed } from "@/lib/login-challenge";
 import { createSession, sessionCookieOptions } from "@/lib/session";
-import { verifyTotp } from "@/lib/totp";
+import { verifyTotpForUser } from "@/lib/totp";
+import { decryptTotpSecret } from "@/lib/totp-secret";
 import { isIpBlocked } from "@/lib/ip-rules";
 import { publicUser } from "@/lib/users";
 
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
     if (!user.totp_secret) {
       throw new HttpError(401, "otp_expired", "TOTP 未启用，请重新登录");
     }
-    if (!verifyTotp(user.totp_secret, code)) {
+    if (!verifyTotpForUser(user.id, decryptTotpSecret(user.totp_secret), code)) {
       const attempts = failChallenge(ticket);
       audit("totp_login_deny", {
         userId: user.id, ip: clientIp(req),

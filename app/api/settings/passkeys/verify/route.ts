@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     const password = decryptPasswordField(
       body.password, body.password_enc, body.password_key,
     );
-    requireCurrentPassword(user, password, "passkey_add");
-    requireSecondFactor(user, body.code || "", "passkey_add");
+    await requireCurrentPassword(user, password, "passkey_add");
+    await requireSecondFactor(user, body.code || "", "passkey_add");
     const ticket = req.cookies.get(WEBAUTHN_COOKIE)?.value || "";
     const challenge = consumeWebauthnChallenge(ticket, "register", clientIp(req));
     if (!challenge || challenge.user_id !== user.id) {

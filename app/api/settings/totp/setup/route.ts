@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const password = decryptPasswordField(
       body.password, body.password_enc, body.password_key,
     );
-    requireCurrentPassword(user, password, "totp_setup");
+    await requireCurrentPassword(user, password, "totp_setup");
     const secret = generateTotpSecret();
     savePendingTotp(user.id, secret);
     const uri = otpauthUri(secret, user.username);
