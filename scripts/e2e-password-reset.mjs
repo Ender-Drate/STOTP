@@ -73,5 +73,10 @@ ok(newLogin.res.status === 200, "new password accepted");
 const oldSession = await json("/api/auth/me", { headers: { Cookie: reg.cookie } });
 ok(oldSession.res.status === 401, "old session revoked after reset");
 
+const { DatabaseSync } = await import("node:sqlite");
+const db = new DatabaseSync(process.env.AUTH_DB_PATH || "data/auth.db");
+const risk = db.prepare("SELECT risk_score FROM users WHERE username = ?").get(username);
+ok(Number(risk?.risk_score) >= 85, "password reset bumps account risk", String(risk?.risk_score));
+
 console.log(failures === 0 ? "\nALL PASSWORD RESET CHECKS PASSED" : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

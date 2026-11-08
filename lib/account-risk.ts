@@ -1,4 +1,5 @@
 import type { User } from "./db";
+import { findUserById, getDb, nowIso } from "./db";
 import { countPasskeys } from "./passkeys";
 import { ipRiskScores, riskLevel } from "./risk";
 
@@ -10,15 +11,33 @@ export interface AccountRisk {
   reasons: string[];
 }
 
+/** 账号风险分按天衰减：重置密码等事件设置的高风险不会永久保留。 */
+export function storedAccountRisk(user: User): number {
+  const raw = Math.max(0, Math.min(100, Number(user.risk_score) || 0));
+  if (!raw) return 0;
+  const updated = user.risk_updated_at ? Date.parse(user.risk_updated_at) : NaN;
+  if (!Number.isFinite(updated)) return raw;
+  const days = Math.max(0, (Date.now() - updated) / 86400_000);
+  return Math.max(0, raw - Math.floor(days * 10));
+}
+
 /**
  * 账号 + 当前请求 IP 的粗粒度风险等级，用于找回密码等敏感流程。
  * 依赖已有 24h/72h 风控观测和账号自身的安全配置。
  */
-export function accountRisk(user: User, ip: string): AccountRisk {
-  const ipRisk = ipRiskScores().get(ip);
-  let score = ipRisk?.score ?? 0;
+export function accountRisk(
+  user: User,
+  ip: string,
+  options: { ipScore?: number; passkeyCount?: number } = {},
+): AccountRisk {
+  const ipRisk = options.ipScore !== undefined
+    ? { score: options.ipScore }
+    : ipRiskScores().get(ip);
+  const stored = storedAccountRisk(user);
+  let score = Math.max(ipRisk?.score ?? 0, stored);
   const reasons: string[] = [];
   if (ipRisk && ipRisk.score >= 60) reasons.push(`IP 风险分 ${ipRisk.score}`);
+  if (stored >= 30) reasons.push(`账号风险事件 ${stored}`);
   if (user.role === "superadmin") {
     score += 60;
     reasons.push("最高管理员账号");
@@ -30,7 +49,8 @@ export function accountRisk(user: User, ip: string): AccountRisk {
     score += 15;
     reasons.push("邮箱未验证");
   }
-  if (!user.totp_secret && countPasskeys(user.id) === 0) {
+  const passkeys = options.passkeyCount ?? countPasskeys(user.id);
+  if (!user.totp_secret && passkeys === 0) {
     score += 10;
     reasons.push("未配置 TOTP / Passkey");
   }
@@ -40,4 +60,15 @@ export function accountRisk(user: User, ip: string): AccountRisk {
   }
   score = Math.min(100, score);
   return { score, level: riskLevel(score), reasons };
+}
+
+/** 将账号风险分提升到至少 minimum；用于密码重置等风险事件。 */
+export function bumpAccountRisk(userId: number, minimum = 85): number {
+  const user = findUserById(userId);
+  if (!user) return 0;
+  const next = Math.max(storedAccountRisk(user), Math.min(100, minimum));
+  getDb().prepare(
+    "UPDATE users SET risk_score = ?, risk_updated_at = ? WHERE id = ?"
+  ).run(next, nowIso(), userId);
+  return next;
 }
