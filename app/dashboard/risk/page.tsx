@@ -10,6 +10,7 @@ import { listIpRules } from "@/lib/ip-rules";
 import { RiskSettingsForm } from "@/app/components/RiskSettingsForm";
 import { IpRulesPanel } from "@/app/components/IpRulesPanel";
 import { IpDetailsButton } from "@/app/components/IpDetailsButton";
+import { IpClearRiskButton } from "@/app/components/IpClearRiskButton";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,7 @@ export default async function RiskPage() {
   const highRisk = Array.from(scores.values()).filter(
     (item) => item.level === "high" || item.level === "critical"
   ).length;
+  const canClearIpRisk = hasPermission(me, "risk.manage");
   const rows = getDb().prepare(
     `SELECT audit.*, users.username FROM audit
      LEFT JOIN users ON users.id = audit.user_id
@@ -165,7 +167,7 @@ export default async function RiskPage() {
                 <th>最近</th>
                 <th>风险</th>
                 <th>环境信号</th>
-                <th>详情</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -183,7 +185,12 @@ export default async function RiskPage() {
                       <span title={item.tlsFingerprint}> · TLS {item.tlsFingerprint.slice(0, 18)}</span>
                     ) : ""}
                   </td>
-                  <td><IpDetailsButton ip={item.ip} /></td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                      <IpDetailsButton ip={item.ip} />
+                      {canClearIpRisk ? <IpClearRiskButton ip={item.ip} /> : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
               {visits.length === 0 ? (

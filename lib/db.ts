@@ -336,6 +336,13 @@ CREATE TABLE IF NOT EXISTS ip_rules (
   expires_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS ip_risk_clears (
+  ip TEXT PRIMARY KEY,
+  cleared_at TEXT NOT NULL,
+  cleared_by INTEGER,
+  created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_passkeys_user ON passkeys(user_id);
 
 CREATE INDEX IF NOT EXISTS idx_tokens_client ON tokens(client_id);

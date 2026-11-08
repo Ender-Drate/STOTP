@@ -2,6 +2,7 @@ import { getDb, nowIso, nowSec } from "./db";
 import { sha256 } from "./crypto";
 import { isPrivateIp as isPrivateIpImpl, normalizeIp } from "./ip";
 import { lookupIpLocation } from "./geolocation";
+import { ipRiskClears } from "./ip-risk-clear";
 
 export interface RiskSettings {
   captchaAfterFailures: number;
@@ -154,17 +155,29 @@ export function riskLevel(score: number, settings = getRiskSettings()): IpRisk["
 export function ipRiskScores(): Map<string, IpRisk> {
   const settings = getRiskSettings();
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-  const rows = getDb().prepare(
-    `SELECT ip, COUNT(*) AS failures FROM audit
+  const clears = ipRiskClears();
+  const rows = (getDb().prepare(
+    `SELECT ip, COUNT(*) AS failures, MAX(ts) AS ts FROM audit
      WHERE event IN ('login_failed', 'totp_login_deny')
-       AND ts >= ? AND ip IS NOT NULL GROUP BY ip`
-  ).all(since) as unknown as Array<{ ip: string; failures: number }>;
-  const observations = getDb().prepare(
-    `SELECT ip, MAX(score) AS score FROM risk_observations
-     WHERE ts >= ? GROUP BY ip`
+       AND ts >= ? AND ip IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM ip_risk_clears c
+         WHERE c.ip = audit.ip AND audit.ts <= c.cleared_at
+       )
+     GROUP BY ip`
+  ).all(since) as unknown as Array<{ ip: string; failures: number; ts: string }>)
+    .filter((row) => !clears.has(row.ip) || row.ts > clears.get(row.ip)!);
+  const observations = (getDb().prepare(
+    `SELECT ip, MAX(score) AS score, MAX(ts) AS ts FROM risk_observations
+     WHERE ts >= ?
+       AND NOT EXISTS (
+         SELECT 1 FROM ip_risk_clears c
+         WHERE c.ip = risk_observations.ip AND risk_observations.ts <= c.cleared_at
+       )
+     GROUP BY ip`
   ).all(new Date(Date.now() - settings.visitWindowHours * 3600 * 1000).toISOString()) as unknown as Array<{
-    ip: string; score: number;
-  }>;
+    ip: string; score: number; ts: string;
+  }>).filter((row) => !clears.has(row.ip) || row.ts > clears.get(row.ip)!);
   const observed = new Map(observations.map((row) => [row.ip, Number(row.score) || 0]));
   const map = new Map<string, IpRisk>();
   for (const row of rows) {
@@ -220,23 +233,28 @@ export function getVisitIps(hours: number): VisitIp[] {
   ).all(since) as unknown as ObservationRow[];
   const aggregated = new Map<string, VisitIp>();
   const latest = new Map<string, ObservationRow>();
+  const clears = ipRiskClears();
 
   for (const row of observations) {
     const ip = normalizeIp(row.ip) || row.ip;
     if (!latest.has(ip)) latest.set(ip, row);
+    const clearedAt = clears.get(ip);
+    const cleared = Boolean(clearedAt && row.ts <= clearedAt);
+    const rowScore = cleared ? 0 : row.score;
+    const rowReasons = cleared ? [] : parseReasons(row.reasons);
     const current = aggregated.get(ip);
     if (!current) {
       aggregated.set(ip, {
         ip, count: 1, first: row.ts, last: row.ts,
-        score: row.score, level: "low",
+        score: rowScore, level: "low",
         location: lookupIpLocation(ip),
         userAgent: row.user_agent, tlsFingerprint: row.tls_fingerprint,
-        reasons: parseReasons(row.reasons),
+        reasons: rowReasons,
       });
     } else {
       current.count += 1;
       if (row.ts < current.first) current.first = row.ts;
-      current.score = Math.max(current.score, row.score);
+      current.score = Math.max(current.score, rowScore);
     }
   }
 
@@ -301,9 +319,12 @@ export function getRecentObservations(limit = 30): RecentObservation[] {
     id: number; ts: string; ip: string; path: string | null;
     tls_fingerprint: string | null; signals: string; score: number; reasons: string | null;
   }>;
+  const clears = ipRiskClears();
   return rows.map((row) => {
     let signals: { webglRenderer?: string; platform?: string } = {};
     try { signals = JSON.parse(row.signals); } catch { /* ignore */ }
+    const clearedAt = clears.get(row.ip);
+    const cleared = Boolean(clearedAt && row.ts <= clearedAt);
     return {
       id: row.id,
       ts: row.ts,
@@ -313,8 +334,8 @@ export function getRecentObservations(limit = 30): RecentObservation[] {
       renderer: signals.webglRenderer || "未提供",
       platform: signals.platform || "未知",
       tlsFingerprint: row.tls_fingerprint,
-      score: row.score,
-      reasons: parseReasons(row.reasons),
+      score: cleared ? 0 : row.score,
+      reasons: cleared ? [] : parseReasons(row.reasons),
     };
   });
 }

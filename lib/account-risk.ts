@@ -72,10 +72,3 @@ export function bumpAccountRisk(userId: number, minimum = 85): number {
   ).run(next, nowIso(), userId);
   return next;
 }
-
-/** 管理员手动清除风险事件分；角色/邮箱/2FA 等基础因素仍会参与计算。 */
-export function clearAccountRisk(userId: number): void {
-  getDb().prepare(
-    "UPDATE users SET risk_score = 0, risk_updated_at = NULL WHERE id = ?"
-  ).run(userId);
-}

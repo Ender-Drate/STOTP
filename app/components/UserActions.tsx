@@ -11,7 +11,7 @@ interface RoleOption {
 
 export function UserActions({
   userId, roleId, status, isSelf,
-  roles, canAssignRoles, canDisable, canDelete, canClearRisk, riskScore,
+  roles, canAssignRoles, canDisable, canDelete,
 }: {
   userId: number;
   roleId: number;
@@ -21,8 +21,6 @@ export function UserActions({
   canAssignRoles: boolean;
   canDisable: boolean;
   canDelete: boolean;
-  canClearRisk: boolean;
-  riskScore: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -63,22 +61,6 @@ export function UserActions({
     }
   }
 
-  async function clearRisk() {
-    if (!confirm("清除该账号的风险事件分？角色/邮箱/2FA 等基础风险因素仍会保留。")) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/users/${userId}/risk/clear`, { method: "POST" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        alert(data?.error?.message || "清除失败");
-        return;
-      }
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="row" style={{ flexWrap: "wrap" }}>
       <select
@@ -100,12 +82,6 @@ export function UserActions({
         <option value="disabled">禁用</option>
         {status === "pending" ? <option value="pending" disabled>待验证</option> : null}
       </select>
-      {canClearRisk && riskScore > 0 ? (
-        <button type="button" className="btn btn-sm btn-ghost"
-          onClick={clearRisk} disabled={busy} title="只清除密码重置等风险事件分">
-          清除风险
-        </button>
-      ) : null}
       {canDelete && !isSelf ? (
         <button type="button" className="btn btn-sm btn-danger"
           onClick={remove} disabled={busy}>

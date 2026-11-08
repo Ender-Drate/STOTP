@@ -6,6 +6,7 @@ import { clientIp, errorResponse, HttpError, rateLimit } from "@/lib/http";
 import { normalizeIp } from "@/lib/ip";
 import { lookupIpLocation } from "@/lib/geolocation";
 import { getRiskSettings, riskLevel } from "@/lib/risk";
+import { ipRiskClears } from "@/lib/ip-risk-clear";
 
 export const runtime = "nodejs";
 
@@ -39,10 +40,12 @@ export async function GET(req: NextRequest) {
       id: number; ts: string; path: string | null; user_agent: string | null;
       tls_fingerprint: string | null; signals: string; score: number; reasons: string | null;
     }>;
+    const clearedAt = ipRiskClears().get(ip) || null;
     const observations = rows.map((row) => {
       let signals: Record<string, unknown> = {};
       try { signals = JSON.parse(row.signals); } catch { /* ignore */ }
-      const score = Number(row.score) || 0;
+      const cleared = Boolean(clearedAt && row.ts <= clearedAt);
+      const score = cleared ? 0 : Number(row.score) || 0;
       return {
         id: row.id,
         ts: row.ts,
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
         tlsFingerprint: row.tls_fingerprint,
         score,
         level: riskLevel(score, settings),
-        reasons: reasons(row.reasons),
+        reasons: cleared ? [] : reasons(row.reasons),
         signals,
       };
     });
@@ -60,6 +63,7 @@ export async function GET(req: NextRequest) {
       location: lookupIpLocation(ip),
       windowHours: settings.visitWindowHours,
       count: observations.length,
+      clearedAt,
       observations,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
