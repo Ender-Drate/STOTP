@@ -22,7 +22,8 @@
     "e2e:risk": "node scripts/e2e-risk.mjs",
     "e2e:sessions": "node scripts/e2e-sessions.mjs",
     "e2e:provider": "node scripts/e2e-provider.mjs",
-    "e2e:user-delete": "node scripts/e2e-user-delete.mjs"
+    "e2e:user-delete": "node scripts/e2e-user-delete.mjs",
+    "e2e:password-reset": "node scripts/e2e-password-reset.mjs"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^14.0.0",

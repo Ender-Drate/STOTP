@@ -137,3 +137,33 @@ export async function sendVerificationEmail(to: string, token: string): Promise<
 <p>如果这不是你的操作，请忽略这封邮件。</p>`,
   });
 }
+
+export async function sendPasswordResetEmail(
+  to: string,
+  token: string,
+  riskLevel: string,
+): Promise<void> {
+  const link = `${PUBLIC_URL}/reset-password?token=${encodeURIComponent(token)}`;
+  const c = config();
+  const text = [
+    "我们收到了重置 STOTP 账户密码的请求。",
+    "",
+    "请在 30 分钟内打开下面的链接设置新密码：",
+    link,
+    "",
+    `本次请求风险等级：${riskLevel}`,
+    "如果这不是你的操作，请忽略这封邮件，并尽快检查账号安全。",
+  ].join("\n");
+  const safeLink = link.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  await getTransporter().sendMail({
+    from: c.from,
+    to,
+    subject: "重置你的 STOTP 账户密码",
+    text,
+    html: `<p>我们收到了重置 STOTP 账户密码的请求。</p>
+<p>请在 30 分钟内打开下面的链接设置新密码：</p>
+<p><a href="${safeLink}">${safeLink}</a></p>
+<p>本次请求风险等级：<strong>${riskLevel}</strong></p>
+<p>如果这不是你的操作，请忽略这封邮件，并尽快检查账号安全。</p>`,
+  });
+}
