@@ -152,6 +152,18 @@ SMTP 可在后台「邮件服务」配置（仅最高管理员），密码加密
 
 `AUTH_REQUIRE_EMAIL_VERIFICATION=0` 可关闭邮箱验证，仅建议本地开发使用。
 
+### 忘记密码
+
+登录页「忘记密码？」→ 输入注册邮箱 + 图形验证码 → 邮件发送 30 分钟一次性重置链接。
+不存在的邮箱也返回通用 202，避免账号枚举。
+
+重置时按 IP 风险分、账号角色、邮箱验证状态、TOTP/Passkey 配置计算
+`low / medium / high / critical`：
+
+- `low / medium`：邮箱链接即可设置新密码；
+- `high / critical`：已启用 TOTP 时要求动态码；未启用 TOTP 时要求二次图形验证码；
+- 重置成功撤销全部会话、令牌、Passkey、第三方绑定。
+
 ### TOTP 两步验证
 
 设置页「TOTP 两步验证」→ 扫描二维码 → 输入 6 位码启用。启用后登录需要密码 + TOTP 动态码；
@@ -372,6 +384,7 @@ npm run e2e:captcha
 npm run e2e:encrypted
 npm run e2e:risk
 npm run e2e:sessions
+npm run e2e:password-reset
 ```
 
 覆盖：TOTP 启用/登录/重放/关闭；外部 OAuth2 授权码回调、本地绑定、TOTP 二阶段绑定、已绑定复用、解绑；
