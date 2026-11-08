@@ -15,7 +15,7 @@ jobs:
       AUTH_E2E: "1"
       AUTH_ADMIN_PASSWORD: "admin1234"
       AUTH_PUBLIC_URL: "http://127.0.0.1:3100"
-      AUTH_DATA_DIR: ${{ runner.temp }}/auth-center-data
+      AUTH_DATA_DIR: /tmp/auth-center-data
       AUTH_REQUIRE_EMAIL_VERIFICATION: "0"
     steps:
       - uses: actions/checkout@v4
