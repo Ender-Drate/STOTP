@@ -99,6 +99,7 @@ real_ip_recursive on;
 | `AUTH_MAIL_FROM` | `STOTP <noreply@yxzhou.com>` | 发件人 |
 | `AUTH_CONFIG_SECRET` | 自动生成 | 后台敏感配置加密密钥；多实例必须共享 |
 | `AUTH_ALLOW_NO_ORIGIN` | `0` | 仅机器对机器脚本需要时设为 `1`；浏览器写请求必须有 Origin |
+| `AUTH_ALLOWED_ORIGINS` | 空 | 逗号分隔的完整 Origin，例如 `https://auth.example.com`；用于反代别名，不能靠伪造 Host 通过同源校验 |
 | `AUTH_E2E` | `0` | 仅本地 e2e；生产 HTTPS 下设置会拒绝启动 |
 | `AUTH_DISPLAY_TZ` | `Asia/Hong_Kong` | 服务端页面显示时间使用的 IANA 时区；数据库仍保存 UTC |
 | `PORT` | `3100` | `npm run dev/start` 已固定 3100，可自行改脚本 |
@@ -141,6 +142,13 @@ location / {
 `X-Real-IP` 如果被多层代理追加成 `1.2.3.4, 1.2.3.4`，会取第一个合法 IP；nginx 仍应尽量覆盖成单个地址。
 修改 nginx 后执行 `nginx -t && systemctl reload nginx`；历史审计里的 `127.0.0.1` 不会自动回填，新登录开始记录真实 IP。
 
+CSP 使用每个请求独立 nonce；`X-Frame-Options`、`nosniff`、`Referrer-Policy`、`Permissions-Policy`
+由 Next 下发。nginx 不要再重复添加这些同名头，否则浏览器会收到重复/冲突值；nginx 只保留
+`Strict-Transport-Security: max-age=31536000; includeSubDomains` 兜底。
+
+如果通过多个域名访问（反代别名），把完整 Origin 写进 `AUTH_ALLOWED_ORIGINS`；
+同源校验不再信任请求的 `Host` 头。
+
 ## 登录方式
 
 ### 注册与邮箱验证
@@ -169,6 +177,15 @@ SMTP 可在后台「邮件服务」配置（仅最高管理员），密码加密
 - **密码重置本身会作为风险事件**，把账号风险分至少提升到 85（high），之后按天衰减；
   用户管理页显示每个账号的风险等级；
 - 重置成功撤销全部会话、令牌、Passkey、第三方绑定。
+
+### 修改邮箱
+
+设置页修改邮箱需要**当前密码**；已启用 TOTP 时还需要动态码。成功后：
+
+- 旧邮箱收到变更通知；
+- 新邮箱收到验证邮件；
+- 全部会话和令牌撤销，必须重新登录；
+- 旧密码重置链接立即作废。
 
 ### TOTP 两步验证
 

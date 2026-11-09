@@ -3,7 +3,7 @@ import { audit } from "@/lib/db";
 import { requirePermission } from "@/lib/admin";
 import { assertSameOrigin, clientIp, errorResponse, HttpError, readJson } from "@/lib/http";
 import {
-  deleteProvider, getProvider, providerIconUrl, providerView, providerUrl,
+  deleteProvider, getProvider, providerIconUrl, providerView, assertPublicProviderUrl,
   updateProvider, type ProviderBody,
 } from "@/lib/login-providers";
 import { optionalText, text } from "@/lib/validators";
@@ -26,9 +26,9 @@ export async function PATCH(
       iconUrl: body.iconUrl === undefined ? provider.icon_url : providerIconUrl(body.iconUrl),
       clientId: text(body.clientId ?? provider.client_id, "Client ID", 1, 200),
       clientSecret: body.clientSecret ? text(body.clientSecret, "Client Secret", 1, 300) : undefined,
-      authorizationUrl: providerUrl(body.authorizationUrl ?? provider.authorization_url, "授权地址"),
-      tokenUrl: providerUrl(body.tokenUrl ?? provider.token_url, "Token 地址"),
-      userinfoUrl: providerUrl(body.userinfoUrl ?? provider.userinfo_url, "UserInfo 地址"),
+      authorizationUrl: await assertPublicProviderUrl(body.authorizationUrl ?? provider.authorization_url, "授权地址"),
+      tokenUrl: await assertPublicProviderUrl(body.tokenUrl ?? provider.token_url, "Token 地址"),
+      userinfoUrl: await assertPublicProviderUrl(body.userinfoUrl ?? provider.userinfo_url, "UserInfo 地址"),
       scopes: optionalText(body.scopes ?? provider.scopes, 300) || provider.scopes,
       enabled: body.enabled === undefined ? Boolean(provider.enabled) : Boolean(body.enabled),
     });

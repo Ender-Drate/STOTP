@@ -1,4 +1,5 @@
 /** 外部 OAuth2 登录服务端到端：首次登录必须绑定本地账户。 */
+import path from "node:path";
 import { createHmac, randomBytes } from "node:crypto";
 import { startMockOAuth } from "./mock-oauth.mjs";
 
@@ -93,6 +94,11 @@ const created = await json("/api/admin/logins", {
 });
 ok(created.res.status === 201, "create provider", created.body?.provider?.key);
 const provider = created.body.provider;
+const { DatabaseSync } = await import("node:sqlite");
+const db = new DatabaseSync(process.env.AUTH_DB_PATH || path.join(process.env.AUTH_DATA_DIR || "data", "auth.db"));
+const storedSecret = db.prepare("SELECT client_secret FROM login_providers WHERE id = ?").get(provider.id);
+ok(String(storedSecret?.client_secret || "").startsWith("v1."),
+  "provider client_secret encrypted at rest");
 
 const loginPage = await fetch(BASE + "/login");
 const loginHtml = await loginPage.text();

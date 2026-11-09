@@ -18,11 +18,30 @@ export function normalizeIp(raw: string | null | undefined): string {
 
 export function isPrivateIp(ip: string): boolean {
   if (!ip) return true;
-  if (ip === "::1" || ip.startsWith("127.")) return true;
-  if (ip.startsWith("10.") || ip.startsWith("192.168.")) return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)) return true;
-  if (ip.startsWith("fc") || ip.startsWith("fd") || ip.startsWith("fe80:")) return true;
-  return false;
+  const value = normalizeIp(ip) || ip.toLowerCase();
+  if (isIP(value) === 4) {
+    const [a, b] = value.split(".").map(Number);
+    if (a === 0 || a === 10 || a === 127) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 192 && b === 0) return true;
+    if (a === 198 && (b === 18 || b === 19)) return true;
+    if (a === 198 && b === 51) return true;
+    if (a === 203 && b === 0) return true;
+    if (a >= 224) return true;
+    return false;
+  }
+  if (isIP(value) === 6) {
+    if (value === "::1" || value === "::") return true;
+    if (value.startsWith("fc") || value.startsWith("fd")) return true;
+    if (/^fe[89ab]/.test(value)) return true;
+    if (value.startsWith("ff")) return true;
+    if (value.startsWith("2001:db8")) return true;
+    return false;
+  }
+  return true;
 }
 
 export function firstPublicIp(values: Array<string | null | undefined>): string {

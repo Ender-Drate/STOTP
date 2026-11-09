@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { hashPasswordSync } from "./crypto";
 import { encryptTotpSecret } from "./totp-secret";
+import { encryptSecret } from "./secret-box";
 import { ALL_PERMISSION_KEYS, DEFAULT_ROLE_PERMISSIONS } from "./permission-defs";
 
 export type Role = string;
@@ -359,6 +360,12 @@ CREATE INDEX IF NOT EXISTS idx_tokens_client ON tokens(client_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_challenges_expiry ON login_challenges(expires_at);
 CREATE INDEX IF NOT EXISTS idx_risk_observations_ip_ts ON risk_observations(ip, ts);
+CREATE INDEX IF NOT EXISTS idx_risk_observations_ts ON risk_observations(ts);
+CREATE INDEX IF NOT EXISTS idx_audit_ip_ts ON audit(ip, ts);
+CREATE INDEX IF NOT EXISTS idx_audit_event_ts ON audit(event, ts);
+CREATE INDEX IF NOT EXISTS idx_audit_event_ip_ts ON audit(event, ip, ts);
+CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit(ts);
+CREATE INDEX IF NOT EXISTS idx_login_failures_last ON login_failures(last_at);
 `;
 
 const globalForDb = globalThis as unknown as {
@@ -376,6 +383,15 @@ export function cleanupExpired(db: DatabaseSync = getDb()): void {
     db.prepare(`DELETE FROM ${table} WHERE expires_at < ?`).run(now);
   }
   db.prepare("DELETE FROM totp_used WHERE used_at < ?").run(now - 300);
+  const retention = db.prepare(
+    "SELECT value FROM risk_settings WHERE key = 'audit_retention_days'"
+  ).get() as { value: string } | undefined;
+  const days = Math.max(1, Math.min(3650, Number(retention?.value) || 30));
+  const cutoff = new Date(Date.now() - days * 86400_000).toISOString();
+  db.prepare("DELETE FROM audit WHERE ts < ?").run(cutoff);
+  db.prepare("DELETE FROM risk_observations WHERE ts < ?").run(cutoff);
+  db.prepare("DELETE FROM login_failures WHERE last_at < ?").run(now - 86400);
+  db.prepare("DELETE FROM rate_limits WHERE reset_at < ?").run(now - 3600);
 }
 
 function ensureRoles(db: DatabaseSync) {
@@ -512,6 +528,13 @@ export function getDb(): DatabaseSync {
   for (const row of plaintextTotp) {
     db.prepare("UPDATE users SET totp_secret = ? WHERE id = ?")
       .run(encryptTotpSecret(row.totp_secret), row.id);
+  }
+  const plaintextProviderSecrets = db.prepare(
+    "SELECT id, client_secret FROM login_providers WHERE client_secret NOT LIKE 'v1.%'"
+  ).all() as unknown as Array<{ id: number; client_secret: string }>;
+  for (const row of plaintextProviderSecrets) {
+    db.prepare("UPDATE login_providers SET client_secret = ? WHERE id = ?")
+      .run(encryptSecret(row.client_secret), row.id);
   }
   cleanupExpired(db);
   globalForDb.__authCenterDb = db;

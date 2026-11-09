@@ -1,4 +1,5 @@
 /** TOTP 端到端：需要 auth-center 已启动。 */
+import path from "node:path";
 import { createHmac, randomBytes } from "node:crypto";
 
 const BASE = process.env.AUTH_BASE_URL || "http://127.0.0.1:3100";
@@ -110,7 +111,7 @@ const me = await json("/api/auth/me", { headers: { Cookie: goodOtp.cookie } });
 ok(me.res.status === 200 && me.body?.user?.username === username, "session valid");
 
 const { DatabaseSync } = await import("node:sqlite");
-const db = new DatabaseSync(process.env.AUTH_DB_PATH || "data/auth.db");
+const db = new DatabaseSync(process.env.AUTH_DB_PATH || path.join(process.env.AUTH_DATA_DIR || "data", "auth.db"));
 const storedSecret = db.prepare("SELECT totp_secret FROM users WHERE username = ?").get(username);
 ok(String(storedSecret?.totp_secret || "").startsWith("v1."), "TOTP secret encrypted at rest");
 

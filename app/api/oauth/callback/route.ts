@@ -5,7 +5,8 @@ import { clientIp } from "@/lib/http";
 import { isIpBlocked } from "@/lib/ip-rules";
 import { createChallenge } from "@/lib/login-challenge";
 import {
-  consumeOAuthState, createLinkTicket, findProviderLink, getProvider, OAUTH_STATE_COOKIE,
+  consumeOAuthState, createLinkTicket, findProviderLink, getProvider,
+  OAUTH_STATE_COOKIE, providerClientSecret,
 } from "@/lib/login-providers";
 import { createSession, sessionCookieOptions } from "@/lib/session";
 import { publicUser } from "@/lib/users";
@@ -52,6 +53,7 @@ async function exchangeCode(
   verifier: string,
   useBasicAuth: boolean,
 ): Promise<{ ok: boolean; status: number; data: TokenData }> {
+  const clientSecret = providerClientSecret(provider);
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
@@ -66,15 +68,16 @@ async function exchangeCode(
   };
   if (useBasicAuth) {
     headers.Authorization = `Basic ${Buffer.from(
-      `${provider.client_id}:${provider.client_secret}`
+      `${provider.client_id}:${clientSecret}`
     ).toString("base64")}`;
   } else {
-    body.set("client_secret", provider.client_secret);
+    body.set("client_secret", clientSecret);
   }
   const res = await fetch(provider.token_url, {
     method: "POST",
     headers,
     body,
+    redirect: "error",
     signal: AbortSignal.timeout(10_000),
   });
   return { ok: res.ok, status: res.status, data: await readTokenResponse(res) };
@@ -122,6 +125,7 @@ export async function GET(req: NextRequest) {
         Accept: "application/json",
         "User-Agent": "STOTP-Auth-Center",
       },
+      redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
     if (!userinfoResponse.ok) return fail("登录服务未返回用户信息", row.next);

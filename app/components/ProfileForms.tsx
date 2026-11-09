@@ -27,6 +27,8 @@ export function ProfileForms({ user, totpEnabled = false }: Props) {
   });
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [profileBusy, setProfileBusy] = useState(false);
+  const [emailAuth, setEmailAuth] = useState({ current: "", code: "" });
+  const emailChanged = profile.email.trim().toLowerCase() !== user.email.toLowerCase();
 
   const [password, setPassword] = useState({ current: "", next: "", confirm: "", code: "" });
   const [passwordMsg, setPasswordMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -37,18 +39,45 @@ export function ProfileForms({ user, totpEnabled = false }: Props) {
     setProfileBusy(true);
     setProfileMsg(null);
     try {
+      let encryptedCurrent: { password_enc: string; password_key: string } | undefined;
+      if (emailChanged) {
+        if (!emailAuth.current) {
+          setProfileMsg({ ok: false, text: "修改邮箱需要输入当前密码" });
+          return;
+        }
+        try {
+          encryptedCurrent = await encryptPassword(emailAuth.current);
+        } catch {
+          setProfileMsg({ ok: false, text: "当前环境无法加密密码，请使用 HTTPS 访问" });
+          return;
+        }
+      }
       const res = await fetch("/api/settings/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
+        body: JSON.stringify({
+          ...profile,
+          ...(emailChanged ? {
+            currentPassword_enc: encryptedCurrent?.password_enc,
+            password_key: encryptedCurrent?.password_key,
+            code: emailAuth.code,
+          } : {}),
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setProfileMsg({ ok: false, text: data?.error?.message || "保存失败" });
         return;
       }
+      if (data?.logout) {
+        setProfileMsg({ ok: true, text: data?.message || "邮箱已修改，请重新登录" });
+        window.location.assign("/login?emailChanged=1");
+        return;
+      }
       setProfileMsg({ ok: true, text: "资料已更新" });
       router.refresh();
+    } catch {
+      setProfileMsg({ ok: false, text: "网络错误，请重试" });
     } finally {
       setProfileBusy(false);
     }
@@ -57,7 +86,7 @@ export function ProfileForms({ user, totpEnabled = false }: Props) {
   async function savePassword(event: React.FormEvent) {
     event.preventDefault();
     if (password.next !== password.confirm) {
-      setPasswordMsg({ ok: false, text: "两次输入的新密码不一致" });
+      setPasswordMsg({ ok: false, text: "两次输入的密码不一致" });
       return;
     }
     setPasswordBusy(true);
@@ -115,6 +144,28 @@ export function ProfileForms({ user, totpEnabled = false }: Props) {
           <input className="input" type="email" value={profile.email}
             onChange={(e) => setProfile({ ...profile, email: e.target.value })} required />
         </div>
+        {emailChanged ? (
+          <>
+            <div className="notice notice-error">
+              修改邮箱需要当前密码确认，并会撤销全部登录会话；旧邮箱会收到变更通知。
+            </div>
+            <div className="field">
+              <label className="label">当前密码</label>
+              <PasswordInput id="profile-email-password" value={emailAuth.current}
+                onChange={(value) => setEmailAuth({ ...emailAuth, current: value })}
+                autoComplete="current-password" required />
+            </div>
+            {totpEnabled ? (
+              <div className="field">
+                <label className="label">TOTP 动态码</label>
+                <input className="input otp-input" inputMode="numeric" autoComplete="one-time-code"
+                  maxLength={6} pattern="[0-9]{6}" value={emailAuth.code}
+                  onChange={(e) => setEmailAuth({ ...emailAuth, code: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+                  placeholder="000000" required />
+              </div>
+            ) : null}
+          </>
+        ) : null}
         <div className="field">
           <label className="label">头像 URL（可选）</label>
           <input className="input" value={profile.avatarUrl}

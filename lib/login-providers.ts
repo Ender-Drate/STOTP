@@ -1,7 +1,11 @@
 import { randomBytes } from "node:crypto";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { getDb, nowIso, nowSec } from "./db";
 import { randomToken, sha256 } from "./crypto";
 import { HttpError } from "./http";
+import { isPrivateIp } from "./ip";
+import { decryptSecret, encryptSecret } from "./secret-box";
 
 export interface ProviderBody {
   name?: string;
@@ -27,6 +31,40 @@ export function providerUrl(value: unknown, label: string): string {
     throw new HttpError(400, "invalid_request", `${label} 只支持 http/https`);
   }
   return url.toString();
+}
+
+/**
+ * 管理员填写的 provider 地址会在服务端被请求，必须阻止内网/回环/元数据地址。
+ * E2E 使用本地 mock provider，显式放行；生产不允许私网。
+ */
+export async function assertPublicProviderUrl(value: unknown, label: string): Promise<string> {
+  const raw = providerUrl(value, label);
+  if (process.env.AUTH_E2E === "1" || process.env.AUTH_ALLOW_INSECURE_PROVIDER_URLS === "1") {
+    return raw;
+  }
+  const url = new URL(raw);
+  if (url.protocol !== "https:") {
+    throw new HttpError(400, "invalid_request", `${label} 生产环境必须使用 https`);
+  }
+  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")
+    || host.endsWith(".internal") || host.endsWith(".lan")) {
+    throw new HttpError(400, "invalid_request", `${label} 不允许内网地址`);
+  }
+  if (isIP(host)) {
+    if (isPrivateIp(host)) throw new HttpError(400, "invalid_request", `${label} 不允许内网地址`);
+    return raw;
+  }
+  let addresses: Array<{ address: string }>;
+  try {
+    addresses = await lookup(host, { all: true, verbatim: true });
+  } catch {
+    throw new HttpError(400, "invalid_request", `${label} 域名无法解析`);
+  }
+  if (!addresses.length || addresses.some((item) => isPrivateIp(item.address))) {
+    throw new HttpError(400, "invalid_request", `${label} 解析到内网地址，已拒绝`);
+  }
+  return raw;
 }
 
 export function providerIconUrl(value: unknown): string | null {
@@ -118,7 +156,7 @@ export function createProvider(input: {
     `INSERT INTO login_providers(key, name, icon_url, client_id, client_secret,
        authorization_url, token_url, userinfo_url, scopes, enabled, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(key, input.name, input.iconUrl, input.clientId, input.clientSecret,
+  ).run(key, input.name, input.iconUrl, input.clientId, encryptSecret(input.clientSecret),
     input.authorizationUrl, input.tokenUrl, input.userinfoUrl, input.scopes,
     input.enabled ? 1 : 0, nowIso());
   return getProvider(Number(result.lastInsertRowid))!;
@@ -137,8 +175,13 @@ export function updateProvider(id: number, input: {
     input.tokenUrl, input.userinfoUrl, input.scopes, input.enabled ? 1 : 0, id);
   if (input.clientSecret) {
     getDb().prepare("UPDATE login_providers SET client_secret = ? WHERE id = ?")
-      .run(input.clientSecret, id);
+      .run(encryptSecret(input.clientSecret), id);
   }
+}
+
+export function providerClientSecret(provider: LoginProvider): string {
+  const value = provider.client_secret;
+  return value.startsWith("v1.") ? decryptSecret(value) : value;
 }
 
 export function deleteProvider(id: number): boolean {
