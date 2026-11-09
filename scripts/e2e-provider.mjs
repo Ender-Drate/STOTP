@@ -93,6 +93,11 @@ const created = await json("/api/admin/logins", {
 });
 ok(created.res.status === 201, "create provider", created.body?.provider?.key);
 const provider = created.body.provider;
+const { DatabaseSync } = await import("node:sqlite");
+const db = new DatabaseSync(process.env.AUTH_DB_PATH || "data/auth.db");
+const storedSecret = db.prepare("SELECT client_secret FROM login_providers WHERE id = ?").get(provider.id);
+ok(String(storedSecret?.client_secret || "").startsWith("v1."),
+  "provider client_secret encrypted at rest");
 
 const loginPage = await fetch(BASE + "/login");
 const loginHtml = await loginPage.text();

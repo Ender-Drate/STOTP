@@ -27,7 +27,19 @@ ok(headers.headers.get("x-frame-options") === "DENY", "X-Frame-Options DENY");
 ok(headers.headers.get("x-content-type-options") === "nosniff", "nosniff");
 ok(csp.includes("frame-ancestors 'none'"), "CSP frame-ancestors none");
 ok(csp.includes("form-action 'self' https:"), "CSP allows OAuth HTTPS callback redirects");
+ok(/script-src [^;]*'nonce-/.test(csp) && !/script-src [^;]*'unsafe-inline'/.test(csp),
+  "CSP script-src uses nonce without unsafe-inline");
 ok(!headers.headers.get("x-powered-by"), "X-Powered-By removed");
+
+const discovery = await fetch(BASE + "/.well-known/openid-configuration");
+ok(discovery.status === 200, "openid-configuration is served");
+
+const { DatabaseSync } = await import("node:sqlite");
+const db = new DatabaseSync(process.env.AUTH_DB_PATH || "data/auth.db");
+const auditIndexes = db.prepare("PRAGMA index_list(audit)").all()
+  .map((row) => row.name);
+ok(auditIndexes.includes("idx_audit_ip_ts") && auditIndexes.includes("idx_audit_event_ts")
+  && auditIndexes.includes("idx_audit_ts"), "audit indexes exist");
 
 const suffix = Date.now().toString(36);
 const username = `sec_${suffix}`;
@@ -108,15 +120,22 @@ ok(oauthRedirect.status === 303 && oauthLocation.includes("/api/oauth/authorize?
 // L-1：跨站 logout 被拒绝。
 const csrfLogout = await fetch(BASE + "/api/auth/logout", {
   method: "POST",
-  headers: { Origin: "https://evil.example", Cookie: spoofed.cookie },
+  headers: { Origin: "https://evil.example", Host: "evil.example", Cookie: spoofed.cookie },
 });
 ok(csrfLogout.status === 403, "cross-origin logout rejected");
 
 const passkeyOrigin = await fetch(BASE + "/api/auth/passkey/options", {
   method: "POST",
-  headers: { Origin: "https://evil.example" },
+  headers: { Origin: "https://evil.example", Host: "evil.example" },
 });
 ok(passkeyOrigin.status === 403, "passkey options reject cross-origin POST");
+
+const oversizedObserve = await fetch(BASE + "/api/risk/observe", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ signals: { userAgent: "x".repeat(5000) } }),
+});
+ok(oversizedObserve.status === 413, "risk observe rejects oversized body");
 
 // M-4：未登录客户端信号不能把任意 IP 刷成 critical。
 const risk = await json("/api/risk/observe", {

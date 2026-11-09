@@ -41,6 +41,38 @@ export async function readJson<T>(req: NextRequest): Promise<T> {
   }
 }
 
+/** 读取有限大小的 JSON，避免未认证端点被超大请求拖垮。 */
+export async function readJsonLimited<T>(req: NextRequest, maxBytes: number): Promise<T> {
+  const declared = Number(req.headers.get("content-length") || 0);
+  if (declared > maxBytes) {
+    throw new HttpError(413, "payload_too_large", "请求体过大");
+  }
+  if (!req.body) throw new HttpError(400, "invalid_request", "请求体必须是 JSON");
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw new HttpError(413, "payload_too_large", "请求体过大");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock?.();
+  }
+  const text = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString("utf8");
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new HttpError(400, "invalid_request", "请求体必须是 JSON");
+  }
+}
+
 export function isFormRequest(req: NextRequest): boolean {
   return (req.headers.get("content-type") || "")
     .toLowerCase()
@@ -138,22 +170,28 @@ export function assertSameOrigin(req: NextRequest) {
     }
     return;
   }
-  let originHost: string;
+  let originOrigin: string;
   try {
-    originHost = new URL(origin).host;
+    originOrigin = new URL(origin).origin;
   } catch {
     throw new HttpError(403, "bad_origin", "Origin 不合法");
   }
   const allowed = new Set<string>();
-  const host = req.headers.get("host");
-  if (host) allowed.add(host);
-  // 不信任客户端可伪造的 X-Forwarded-Host；nginx 已把 Host 设为对外域名。
   try {
-    allowed.add(new URL(PUBLIC_URL).host);
+    allowed.add(new URL(PUBLIC_URL).origin);
   } catch {
     // AUTH_PUBLIC_URL 非法时交给启动/请求逻辑暴露，不在这里放大
   }
-  if (!allowed.has(originHost)) {
+  for (const value of (process.env.AUTH_ALLOWED_ORIGINS || "").split(",")) {
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    try {
+      allowed.add(new URL(trimmed).origin);
+    } catch {
+      // 忽略非法白名单项
+    }
+  }
+  if (!allowed.has(originOrigin)) {
     throw new HttpError(403, "bad_origin", "跨站请求被拒绝");
   }
 }

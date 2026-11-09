@@ -3,7 +3,7 @@ import { audit } from "@/lib/db";
 import { requirePermission } from "@/lib/admin";
 import { assertSameOrigin, clientIp, errorResponse, readJson } from "@/lib/http";
 import {
-  createProvider, listProviders, providerView, providerIconUrl, providerUrl,
+  createProvider, listProviders, providerView, providerIconUrl, assertPublicProviderUrl,
   type ProviderBody,
 } from "@/lib/login-providers";
 import { optionalText, text } from "@/lib/validators";
@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
     const name = text(body.name, "登录服务名称", 2, 40);
     const clientId = text(body.clientId, "Client ID", 1, 200);
     const clientSecret = text(body.clientSecret, "Client Secret", 1, 300);
-    const authorizationUrl = providerUrl(body.authorizationUrl, "授权地址");
-    const tokenUrl = providerUrl(body.tokenUrl, "Token 地址");
-    const userinfoUrl = providerUrl(body.userinfoUrl, "UserInfo 地址");
+    const authorizationUrl = await assertPublicProviderUrl(body.authorizationUrl, "授权地址");
+    const tokenUrl = await assertPublicProviderUrl(body.tokenUrl, "Token 地址");
+    const userinfoUrl = await assertPublicProviderUrl(body.userinfoUrl, "UserInfo 地址");
     const scopes = optionalText(body.scopes, 300) || "openid profile email";
     const provider = createProvider({
       name,

@@ -167,3 +167,31 @@ export async function sendPasswordResetEmail(
 <p>如果这不是你的操作，请忽略这封邮件，并尽快检查账号安全。</p>`,
   });
 }
+
+export async function sendEmailChangedEmail(
+  to: string,
+  newEmail: string,
+  when: string,
+): Promise<void> {
+  const c = config();
+  const safeNew = newEmail.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const text = [
+    "你的 STOTP 账户邮箱刚刚被修改。",
+    "",
+    `新邮箱：${newEmail}`,
+    `时间：${when}`,
+    "",
+    "如果这是你的操作，请同时检查新邮箱的验证邮件。",
+    "如果不是你的操作，请立即使用「忘记密码」重置密码，并联系管理员。",
+  ].join("\n");
+  await getTransporter().sendMail({
+    from: c.from,
+    to,
+    subject: "你的 STOTP 账户邮箱已修改",
+    text,
+    html: `<p>你的 STOTP 账户邮箱刚刚被修改。</p>
+<p>新邮箱：<strong>${safeNew}</strong><br/>时间：${when}</p>
+<p>如果这是你的操作，请同时检查新邮箱的验证邮件。</p>
+<p><strong>如果不是你的操作，请立即使用「忘记密码」重置密码，并联系管理员。</strong></p>`,
+  });
+}

@@ -14,7 +14,7 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{
     next?: string | string[]; error?: string | string[]; verified?: string | string[];
-    reset?: string | string[];
+    reset?: string | string[]; emailChanged?: string | string[];
   }>;
 }) {
   const params = await searchParams;
@@ -22,6 +22,7 @@ export default async function LoginPage({
   const error = typeof params.error === "string" ? params.error : "";
   const verified = params.verified === "1";
   const reset = params.reset === "1";
+  const emailChanged = params.emailChanged === "1";
   const user = await currentUser();
   if (user) redirect(next);
   const providers = listProviders(true);
@@ -37,6 +38,7 @@ export default async function LoginPage({
           </div>
         </div>
         <h1 className="auth-title">登录账户</h1>
+        {emailChanged ? <div className="notice notice-ok">邮箱已修改，请重新登录并验证新邮箱。</div> : null}
         {reset ? <div className="notice notice-ok">密码已重置，请使用新密码登录。</div> : null}
         <LoginForm next={next} initialError={error} verified={verified} />
         <PasskeyLoginButton next={next} />
