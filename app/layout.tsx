@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./liquid-glass.css";
 import { RiskObserver } from "@/app/components/RiskObserver";
 
 export const metadata: Metadata = {
