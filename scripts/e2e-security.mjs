@@ -1,4 +1,5 @@
 /** 安全审计回归：H-1、M-1、M-3、M-4、M-5。 */
+import path from "node:path";
 const BASE = process.env.AUTH_BASE_URL || "http://127.0.0.1:3100";
 const ADMIN_PASSWORD = process.env.AUTH_ADMIN_PASSWORD || "admin1234";
 let failures = 0;
@@ -35,7 +36,7 @@ const discovery = await fetch(BASE + "/.well-known/openid-configuration");
 ok(discovery.status === 200, "openid-configuration is served");
 
 const { DatabaseSync } = await import("node:sqlite");
-const db = new DatabaseSync(process.env.AUTH_DB_PATH || "data/auth.db");
+const db = new DatabaseSync(process.env.AUTH_DB_PATH || path.join(process.env.AUTH_DATA_DIR || "data", "auth.db"));
 const auditIndexes = db.prepare("PRAGMA index_list(audit)").all()
   .map((row) => row.name);
 ok(auditIndexes.includes("idx_audit_ip_ts") && auditIndexes.includes("idx_audit_event_ts")
