@@ -11,20 +11,21 @@
   --lg-radius-sm: 17px;
   --lg-radius-pill: 999px;
 
-  --lg-tint-top: rgba(255, 255, 255, 0.32);
-  --lg-tint-bottom: rgba(255, 255, 255, 0.1);
+  --lg-tint-top: rgba(255, 255, 255, 0.27);
+  --lg-tint-bottom: rgba(255, 255, 255, 0.08);
   --lg-tint-hover: rgba(255, 255, 255, 0.58);
-  --lg-rim-top: rgba(255, 255, 255, 0.92);
-  --lg-rim-side: rgba(255, 255, 255, 0.38);
-  --lg-rim-bottom: rgba(255, 255, 255, 0.16);
-  --lg-border: rgba(255, 255, 255, 0.6);
-  --lg-border-strong: rgba(255, 255, 255, 0.78);
+  --lg-rim-top: rgba(255, 255, 255, 0.42);
+  --lg-rim-side: rgba(255, 255, 255, 0.24);
+  --lg-rim-bottom: rgba(255, 255, 255, 0.08);
+  --lg-border: rgba(255, 255, 255, 0.44);
+  --lg-border-strong: rgba(255, 255, 255, 0.58);
   --lg-shadow:
-    0 26px 70px -24px rgba(45, 55, 105, 0.36),
-    0 8px 24px -12px rgba(45, 55, 105, 0.16),
+    0 18px 48px -26px rgba(45, 55, 105, 0.24),
+    0 4px 14px -10px rgba(45, 55, 105, 0.1),
     inset 0 1px 0 var(--lg-rim-top),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
-  --lg-blur: blur(32px) saturate(180%);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --lg-blur: blur(28px) saturate(160%);
+  --lg-hover-highlight: rgba(255, 255, 255, 0.34);
 
   --surface: rgba(255, 255, 255, 0.34);
   --surface-2: rgba(255, 255, 255, 0.2);
@@ -149,20 +150,50 @@ body::after {
 
 .card,
 .auth-card,
-.modal {
+.modal,
+.stat,
+.provider-card,
+.role-card {
   position: relative;
 }
 
 .card::before,
 .auth-card::before,
-.modal::before {
+.modal::before,
+.stat::before,
+.provider-card::before,
+.role-card::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.46), transparent 24%, transparent 76%, rgba(255, 255, 255, 0.12));
-  opacity: 0.55;
+  opacity: 0;
+  background: radial-gradient(
+    260px circle at var(--glass-hx, 24%) var(--glass-hy, 0%),
+    var(--lg-hover-highlight, rgba(255, 255, 255, 0.34)),
+    transparent 70%
+  );
+  transition: opacity 220ms ease;
+}
+
+@media (hover: hover) {
+  .card:hover::before,
+  .auth-card:hover::before,
+  .modal:hover::before,
+  .stat:hover::before,
+  .provider-card:hover::before,
+  .role-card:hover::before {
+    opacity: 1;
+  }
+  .card:hover,
+  .auth-card:hover,
+  .modal:hover,
+  .stat:hover,
+  .provider-card:hover,
+  .role-card:hover {
+    border-color: var(--lg-border-strong);
+  }
 }
 
 .card-head {
@@ -209,8 +240,8 @@ body::after {
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.28));
   color: #283042;
   box-shadow:
-    0 7px 16px -12px rgba(38, 48, 90, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 5px 12px -10px rgba(38, 48, 90, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
 }
@@ -561,7 +592,8 @@ html[data-theme="dark"] {
   --lg-tint-top: rgba(33, 43, 60, 0.58);
   --lg-tint-bottom: rgba(17, 24, 36, 0.38);
   --lg-tint-hover: rgba(45, 57, 77, 0.7);
-  --lg-rim-top: rgba(255, 255, 255, 0.34);
+  --lg-rim-top: rgba(255, 255, 255, 0.28);
+  --lg-hover-highlight: rgba(255, 255, 255, 0.14);
   --lg-rim-side: rgba(255, 255, 255, 0.12);
   --lg-rim-bottom: rgba(255, 255, 255, 0.04);
   --lg-border: rgba(255, 255, 255, 0.16);

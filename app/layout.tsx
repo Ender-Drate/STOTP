@@ -4,6 +4,7 @@ import "./globals.css";
 import "./liquid-glass.css";
 import { RiskObserver } from "@/app/components/RiskObserver";
 import { PreferencesDock } from "@/app/components/PreferencesDock";
+import { GlassHover } from "@/app/components/GlassHover";
 
 export const metadata: Metadata = {
   title: "STOTP 账户",
@@ -29,6 +30,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {children}
         <RiskObserver />
         <PreferencesDock />
+        <GlassHover />
       </body>
     </html>
   );
