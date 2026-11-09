@@ -146,6 +146,16 @@ CSP 使用每个请求独立 nonce；`X-Frame-Options`、`nosniff`、`Referrer-P
 由 Next 下发。nginx 不要再重复添加这些同名头，否则浏览器会收到重复/冲突值；nginx 只保留
 `Strict-Transport-Security: max-age=31536000; includeSubDomains` 兜底。
 
+### 后台 CSP 策略
+
+「开发 → CSP 策略」(`/dashboard/developer/csp`) 只有最高管理员可见：
+
+- 可增删任意 CSP 指令和来源；
+- 必须先绑定 TOTP，保存/恢复默认需要当前 TOTP 动态码；
+- 配置保存在 `app_settings`，由 Node proxy 按请求生成 nonce CSP；
+- `script-src` 的 `{{nonce}}` 会替换为当前请求 nonce，保存时会自动补回；
+- 错误配置可能导致页面资源无法加载，保存前有二次确认。
+
 如果通过多个域名访问（反代别名），把完整 Origin 写进 `AUTH_ALLOWED_ORIGINS`；
 同源校验不再信任请求的 `Host` 头。
 
@@ -253,10 +263,11 @@ GitHub Token 端点默认返回 `application/x-www-form-urlencoded`，auth-cente
 
 ## 统计与风险控制
 
-「开发」分组新增两个页面：
+「开发」分组新增三个页面：
 
 - **统计信息**：CPU、内存、磁盘、网络收发速率、认证 QPS、负载、运行时间、进程内存。
 - **风险控制**：24h 登录失败、独立 IP、高风险 IP、验证码阈值、最近审计与 IP 风险估值。
+- **CSP 策略**：最高管理员专用，支持增删 CSP 指令/来源，保存需要 TOTP。
 
 风控指标仅最高管理员可修改，包括验证码触发阈值、失败计数窗口、高中风险阈值、审计保留天数、访问 IP 统计窗口。
 
