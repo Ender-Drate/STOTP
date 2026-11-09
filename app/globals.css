@@ -758,3 +758,26 @@ select.input {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- CSP 编辑器 ---------- */
+.csp-editor { display: grid; gap: 12px; }
+.csp-directive {
+  border: 1px solid var(--line); border-radius: 16px;
+  background: var(--surface-2); padding: 12px;
+}
+.csp-directive-head {
+  display: flex; gap: 8px; align-items: center; margin-bottom: 10px;
+}
+.csp-directive-head .input { flex: 1; font-weight: 600; }
+.csp-sources { display: grid; gap: 7px; }
+.csp-source { display: flex; gap: 8px; align-items: center; }
+.csp-source .input { flex: 1; }
+.csp-save {
+  display: flex; gap: 12px; align-items: flex-end;
+  margin-top: 18px; flex-wrap: wrap;
+}
+.csp-save .btn { height: 40px; }
+@media (max-width: 720px) {
+  .csp-directive-head, .csp-source, .csp-save { flex-wrap: wrap; }
+  .csp-save .btn { width: 100%; }
+}

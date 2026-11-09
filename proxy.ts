@@ -1,26 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildCsp, cloneDefaultCsp, readCspConfig } from "@/lib/csp";
 
 /**
  * 每个文档请求生成 nonce；同时写入 request/response CSP。
  * Next 会从 request 的 Content-Security-Policy 提取 nonce 并注入其内联脚本。
  */
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const dev = process.env.NODE_ENV !== "production";
-  const connect = dev ? "'self' ws: wss:" : "'self'";
-  const script = dev ? `'self' 'nonce-${nonce}' 'unsafe-eval'` : `'self' 'nonce-${nonce}'`;
-  const csp = [
-    "default-src 'self'",
-    `script-src ${script}`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https://auth.builddreams.cn https:",
-    "font-src 'self' data:",
-    `connect-src ${connect}`,
-    "object-src 'none'",
-    "base-uri 'none'",
-    "form-action 'self' https:",
-    "frame-ancestors 'none'",
-  ].join("; ");
+  let directives = cloneDefaultCsp();
+  try {
+    directives = readCspConfig();
+  } catch {
+    // DB 不可用时仍使用安全默认值
+  }
+  const csp = buildCsp(directives, nonce, dev);
 
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);

@@ -46,6 +46,10 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
         href: "/dashboard/risk", label: "风险控制", icon: "risk",
         permission: "audit.view",
       },
+      {
+        href: "/dashboard/developer/csp", label: "CSP 策略", icon: "shield",
+        superOnly: true,
+      },
       { href: "/docs", label: "接入文档", icon: "docs" },
     ],
   },
