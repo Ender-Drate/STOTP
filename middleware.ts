@@ -13,7 +13,7 @@ export function middleware(req: NextRequest) {
     "default-src 'self'",
     `script-src ${script}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
+    "img-src 'self' data: https://auth.builddreams.cn https:",
     "font-src 'self' data:",
     `connect-src ${connect}`,
     "object-src 'none'",

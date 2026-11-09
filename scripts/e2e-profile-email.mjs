@@ -31,6 +31,21 @@ const registered = await json("/api/auth/register", {
 });
 ok(registered.res.status === 200, "register email-change user");
 
+const allowedAvatar = await json("/api/settings/profile", {
+  method: "PATCH",
+  headers: { Cookie: registered.cookie },
+  body: JSON.stringify({ avatarUrl: "https://auth.builddreams.cn/avatars/test.png" }),
+});
+ok(allowedAvatar.res.status === 200
+  && allowedAvatar.body?.user?.avatarUrl === "https://auth.builddreams.cn/avatars/test.png",
+  "auth.builddreams.cn avatar path allowed");
+const blockedAvatar = await json("/api/settings/profile", {
+  method: "PATCH",
+  headers: { Cookie: registered.cookie },
+  body: JSON.stringify({ avatarUrl: "https://evil.example/avatars/test.png" }),
+});
+ok(blockedAvatar.res.status === 400, "foreign avatar origin rejected");
+
 const withoutPassword = await json("/api/settings/profile", {
   method: "PATCH",
   headers: { Cookie: registered.cookie },
