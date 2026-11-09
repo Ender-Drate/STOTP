@@ -382,3 +382,102 @@ select.input { background-color: rgba(255, 255, 255, 0.34); }
   .nav-item { transition: none; }
   .nav-item:hover { transform: none; }
 }
+
+/* ---------- Docs / secondary surfaces ---------- */
+
+.docs-shell {
+  background: transparent;
+}
+
+.docs-side {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.16));
+  border-right: 1px solid var(--lg-border);
+  border-radius: 0 var(--lg-radius-lg) var(--lg-radius-lg) 0;
+  box-shadow:
+    18px 0 45px -28px rgba(45, 55, 105, 0.32),
+    inset -1px 0 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: var(--lg-blur);
+  -webkit-backdrop-filter: var(--lg-blur);
+}
+
+.docs-nav a {
+  border-radius: 12px;
+}
+.docs-nav a:hover {
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.docs-hero {
+  border: 1px solid var(--lg-border);
+  border-radius: var(--lg-radius-lg);
+  background: linear-gradient(155deg, var(--lg-tint-top), var(--lg-tint-bottom));
+  box-shadow: var(--lg-shadow);
+  backdrop-filter: var(--lg-blur);
+  -webkit-backdrop-filter: var(--lg-blur);
+}
+
+.docs-meta span,
+.docs-step {
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.docs-step {
+  border-radius: 12px;
+  color: var(--accent);
+}
+
+.docs-step-block {
+  border-top-color: rgba(60, 70, 100, 0.1);
+}
+
+.code-block {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 17px;
+  background: rgba(16, 20, 30, 0.82);
+  box-shadow:
+    0 18px 40px -26px rgba(20, 28, 50, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+}
+
+.alert,
+.popover {
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow:
+    0 18px 42px -25px rgba(40, 50, 90, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px) saturate(145%);
+  -webkit-backdrop-filter: blur(16px) saturate(145%);
+}
+
+.perm-group {
+  border-radius: 17px;
+  border-color: rgba(255, 255, 255, 0.44);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.totp-setup img {
+  border-radius: 18px;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.empty {
+  color: #687186;
+}
+
+@media (max-width: 900px) {
+  .docs-side {
+    border-radius: 0 0 var(--lg-radius) var(--lg-radius);
+  }
+}
+
+@media (max-width: 720px) {
+  .docs-hero { border-radius: 28px; }
+  .code-block { border-radius: 15px; }
+}

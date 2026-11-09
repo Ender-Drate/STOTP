@@ -14,6 +14,9 @@ export function CspEditor({
 }) {
   const router = useRouter();
   const [directives, setDirectives] = useState<CspDirective[]>(initial);
+  const [sourceText, setSourceText] = useState<string[]>(
+    initial.map((item) => item.sources.join(" "))
+  );
   const [code, setCode] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -26,21 +29,19 @@ export function CspEditor({
 
   function addDirective() {
     setDirectives((current) => [...current, { name: "img-src", sources: ["'self'"] }]);
+    setSourceText((current) => [...current, "'self'"]);
   }
 
   function removeDirective(index: number) {
     setDirectives((current) => current.filter((_, i) => i !== index));
+    setSourceText((current) => current.filter((_, i) => i !== index));
   }
 
-  function addSource(index: number) {
-    update(index, { sources: [...directives[index].sources, ""] });
+  function setRawSources(index: number, text: string) {
+    setSourceText((current) => current.map((value, i) => i === index ? text : value));
+    update(index, { sources: text.split(/\s+/).filter(Boolean) });
   }
 
-  function removeSource(index: number, sourceIndex: number) {
-    update(index, {
-      sources: directives[index].sources.filter((_, i) => i !== sourceIndex),
-    });
-  }
 
   async function save() {
     if (!totpEnabled) {
@@ -62,6 +63,9 @@ export function CspEditor({
         return;
       }
       setDirectives(data.directives || directives);
+      setSourceText((data.directives || directives).map(
+        (item: CspDirective) => item.sources.join(" ")
+      ));
       setCode("");
       setMsg({ ok: true, text: "CSP 已保存并生效" });
       router.refresh();
@@ -99,26 +103,15 @@ export function CspEditor({
                 删除指令
               </button>
             </div>
-            <div className="csp-sources">
-              {directive.sources.map((source, sourceIndex) => (
-                <div className="csp-source" key={sourceIndex}>
-                  <input className="input mono" value={source}
-                    aria-label={`${directive.name} 来源`}
-                    onChange={(e) => {
-                      const sources = [...directive.sources];
-                      sources[sourceIndex] = e.target.value;
-                      update(index, { sources });
-                    }} />
-                  <button type="button" className="btn btn-sm btn-ghost"
-                    onClick={() => removeSource(index, sourceIndex)}>
-                    删除
-                  </button>
-                </div>
-              ))}
-              <button type="button" className="btn btn-sm btn-ghost"
-                onClick={() => addSource(index)}>
-                + 来源
-              </button>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label className="label">{directive.name} 来源（空格分隔，可直接增删）</label>
+              <textarea className="input mono" rows={2}
+                value={sourceText[index] ?? directive.sources.join(" ")}
+                onChange={(e) => setRawSources(index, e.target.value)}
+                onBlur={() => setSourceText((current) => current.map(
+                  (value, i) => i === index ? (directives[i]?.sources || []).join(" ") : value
+                ))}
+                placeholder="'self' https:" />
             </div>
           </div>
         ))}
@@ -129,9 +122,13 @@ export function CspEditor({
           + 添加指令
         </button>
         <button type="button" className="btn btn-ghost"
-          onClick={() => setDirectives(defaults.map((item) => ({
-            name: item.name, sources: [...item.sources],
-          })))}>
+          onClick={() => {
+            const next = defaults.map((item) => ({
+              name: item.name, sources: [...item.sources],
+            }));
+            setDirectives(next);
+            setSourceText(next.map((item) => item.sources.join(" ")));
+          }}>
           恢复默认值（需保存）
         </button>
       </div>
