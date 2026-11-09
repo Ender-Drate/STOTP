@@ -1,6 +1,6 @@
 # AI Review #89 整改记录
 
-对应 Issue: [#89](https://github.com/EnderCraft-Server/STOTP/issues/89)
+对应 Issue: [#89](https://github.com/Ender-Drate/STOTP/issues/89)
 
 | 项 | 状态 | 整改 |
 | --- | --- | --- |
