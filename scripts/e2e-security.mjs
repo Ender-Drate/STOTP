@@ -28,6 +28,7 @@ ok(headers.headers.get("x-frame-options") === "DENY", "X-Frame-Options DENY");
 ok(headers.headers.get("x-content-type-options") === "nosniff", "nosniff");
 ok(csp.includes("frame-ancestors 'none'"), "CSP frame-ancestors none");
 ok(csp.includes("form-action 'self' https:"), "CSP allows OAuth HTTPS callback redirects");
+ok(csp.includes("https://auth.builddreams.cn"), "CSP allows auth.builddreams.cn images");
 ok(/script-src [^;]*'nonce-/.test(csp) && !/script-src [^;]*'unsafe-inline'/.test(csp),
   "CSP script-src uses nonce without unsafe-inline");
 ok(!headers.headers.get("x-powered-by"), "X-Powered-By removed");

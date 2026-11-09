@@ -15,6 +15,10 @@ import { email, optionalText } from "@/lib/validators";
 
 export const runtime = "nodejs";
 const E2E = process.env.AUTH_E2E === "1";
+const AVATAR_ORIGINS = new Set([
+  (() => { try { return new URL(PUBLIC_URL).origin; } catch { return ""; } })(),
+  "https://auth.builddreams.cn",
+]);
 
 interface Body {
   displayName?: string;
@@ -49,8 +53,8 @@ export async function PATCH(req: NextRequest) {
         if (!["http:", "https:"].includes(parsed.protocol)) {
           throw new HttpError(400, "invalid_request", "头像只支持 http/https");
         }
-        if (parsed.origin !== new URL(PUBLIC_URL).origin) {
-          throw new HttpError(400, "invalid_request", "头像只允许本站地址，避免第三方追踪");
+        if (!AVATAR_ORIGINS.has(parsed.origin)) {
+          throw new HttpError(400, "invalid_request", "头像只允许本站或 auth.builddreams.cn 地址");
         }
         avatarUrl = value;
       } else {
