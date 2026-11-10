@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PUBLIC_URL } from "@/lib/config";
 import { audit, findUserById, getDb, nowIso } from "@/lib/db";
 import { requireUser } from "@/lib/admin";
 import {
@@ -9,16 +8,13 @@ import { decryptPasswordField } from "@/lib/password-crypto";
 import { requireCurrentPassword, requireSecondFactor } from "@/lib/reauth";
 import { issueEmailVerification } from "@/lib/email-verification";
 import { mailConfigured, sendEmailChangedEmail, sendVerificationEmail } from "@/lib/mailer";
+import { imageSourceAllowed } from "@/lib/csp";
 import { sessionCookieOptions } from "@/lib/session";
 import { publicUser } from "@/lib/users";
 import { email, optionalText } from "@/lib/validators";
 
 export const runtime = "nodejs";
 const E2E = process.env.AUTH_E2E === "1";
-const AVATAR_ORIGINS = new Set([
-  (() => { try { return new URL(PUBLIC_URL).origin; } catch { return ""; } })(),
-  "https://auth.builddreams.cn",
-]);
 
 interface Body {
   displayName?: string;
@@ -53,8 +49,8 @@ export async function PATCH(req: NextRequest) {
         if (!["http:", "https:"].includes(parsed.protocol)) {
           throw new HttpError(400, "invalid_request", "头像只支持 http/https");
         }
-        if (!AVATAR_ORIGINS.has(parsed.origin)) {
-          throw new HttpError(400, "invalid_request", "头像只允许本站或 auth.builddreams.cn 地址");
+        if (!imageSourceAllowed(value)) {
+          throw new HttpError(400, "invalid_request", "该地址未被允许作为头像");
         }
         avatarUrl = value;
       } else {
