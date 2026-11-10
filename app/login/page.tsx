@@ -5,6 +5,7 @@ import { safeNextPath } from "@/lib/http";
 import { currentUser } from "@/lib/session";
 import { LoginForm } from "@/app/components/AuthForms";
 import { PasskeyLoginButton } from "@/app/components/PasskeyLoginButton";
+import { ProviderIcon } from "@/app/components/ProviderIcon";
 import { listProviders } from "@/lib/login-providers";
 
 export const dynamic = "force-dynamic";
@@ -49,12 +50,7 @@ export default async function LoginPage({
               {providers.map((provider) => (
                 <a key={provider.id} className="provider-btn"
                   href={`/api/oauth/start?provider=${encodeURIComponent(provider.key)}&next=${encodeURIComponent(next)}`}>
-                  <span className="provider-icon">
-                    {provider.icon_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={provider.icon_url} alt="" />
-                    ) : provider.name.slice(0, 1).toUpperCase()}
-                  </span>
+                  <ProviderIcon iconUrl={provider.icon_url} name={provider.name} fallback={provider.key} />
                   <span>{provider.name}</span>
                 </a>
               ))}

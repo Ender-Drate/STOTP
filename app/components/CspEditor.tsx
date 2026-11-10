@@ -105,7 +105,7 @@ export function CspEditor({
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
               <label className="label">{directive.name} 来源（空格分隔，可直接增删）</label>
-              <textarea className="input mono" rows={2}
+              <textarea className="input mono" rows={1}
                 value={sourceText[index] ?? directive.sources.join(" ")}
                 onChange={(e) => setRawSources(index, e.target.value)}
                 onBlur={() => setSourceText((current) => current.map(
