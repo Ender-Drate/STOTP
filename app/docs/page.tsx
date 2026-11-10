@@ -185,8 +185,8 @@ grant_type=authorization_code
 const verifier = randomBytes(32).toString("base64url");
 const challenge = createHash("sha256").update(verifier).digest("base64url");
 
-// 1. 浏览器跳转 /api/oauth/authorize?...&code_challenge=\${challenge}
-// 2. 回调拿到 code 后：
+// 1. Redirect the browser to /api/oauth/authorize?...&code_challenge=\${challenge}
+// 2. After the callback receives code:
 const body = new URLSearchParams({
   grant_type: "authorization_code",
   code,
@@ -209,7 +209,7 @@ const tokens = await fetch("/api/oauth/token", {
 
             </div>
           </div>
-          <CodeBlock label="刷新令牌" code={`# 前提：授权时申请了 offline_access
+          <CodeBlock label="刷新令牌" code={`# Requires offline_access at authorization time
 grant_type=refresh_token
 &refresh_token=REFRESH_TOKEN
 &client_id=YOUR_CLIENT_ID
@@ -237,7 +237,7 @@ token=ACCESS_OR_REFRESH_TOKEN
               <p>返回标准 OAuth2 错误：</p>
               <CodeBlock label="JSON" code={`{
   "error": "invalid_grant",
-  "error_description": "授权码无效或已过期"
+  "error_description": "Authorization code is invalid or expired"
 }`} />
             </div>
             <div>
