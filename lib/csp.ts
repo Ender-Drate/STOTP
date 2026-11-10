@@ -1,4 +1,5 @@
 import { getSetting, setSetting } from "./settings-store";
+import { PUBLIC_URL } from "./config";
 
 export interface CspDirective {
   name: string;
@@ -13,7 +14,7 @@ export const DEFAULT_CSP: CspDirective[] = [
   { name: "style-src", sources: ["'self'", "'unsafe-inline'"] },
   {
     name: "img-src",
-    sources: ["'self'", "data:", "https://auth.builddreams.cn", "https:"],
+    sources: ["'self'", "data:", "https://auth.builddreams.cn"],
   },
   { name: "font-src", sources: ["'self'", "data:"] },
   { name: "connect-src", sources: ["'self'"] },
@@ -76,6 +77,67 @@ export function saveCspConfig(input: unknown): CspDirective[] {
   const directives = sanitizeCsp(input);
   setSetting("csp_config", JSON.stringify(directives));
   return directives;
+}
+
+function hostWildcardMatch(hostname: string, source: string): boolean {
+  const wildcard = source.match(/^(\*\.)?([^/]+)$/);
+  if (!wildcard) return false;
+  if (!wildcard[1]) return hostname === wildcard[2];
+  return hostname.endsWith(`.${wildcard[2]}`);
+}
+
+/**
+ * 头像 URL 是否被当前 `img-src` 允许。
+ * 新增 CSP 来源后无需再改代码；`*`/`https:`/精确 origin/通配子域都会生效。
+ */
+export function imageSourceAllowed(rawUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+
+  const directives = readCspConfig();
+  const img = directives.find((item) => item.name === "img-src");
+  const fallback = directives.find((item) => item.name === "default-src");
+  const sources = img?.sources ?? fallback?.sources ?? ["'self'"];
+  const publicOrigin = (() => {
+    try { return new URL(PUBLIC_URL).origin; } catch { return ""; }
+  })();
+
+  for (const source of sources) {
+    if (source === "*") return true;
+    if (source === "'self'") {
+      if (url.origin === publicOrigin) return true;
+      continue;
+    }
+    if (source === "https:" && url.protocol === "https:") return true;
+    if (source === "http:" && url.protocol === "http:") return true;
+    if (source === "data:") continue;
+    if (source.startsWith("https://*.") || source.startsWith("http://*.")) {
+      try {
+        const parsed = new URL(source.replace("*.", ""));
+        if (parsed.protocol === url.protocol && hostWildcardMatch(url.hostname, `*.${parsed.hostname}`)) {
+          return true;
+        }
+      } catch {
+        // ignore malformed source
+      }
+      continue;
+    }
+    if (source.startsWith("https://") || source.startsWith("http://")) {
+      try {
+        const parsed = new URL(source);
+        if (parsed.origin !== url.origin) continue;
+        if (parsed.pathname === "/" || url.pathname.startsWith(parsed.pathname)) return true;
+      } catch {
+        // ignore malformed source
+      }
+    }
+  }
+  return false;
 }
 
 export function buildCsp(

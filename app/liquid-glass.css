@@ -25,7 +25,7 @@
     inset 0 1px 0 var(--lg-rim-top),
     inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   --lg-blur: blur(28px) saturate(160%);
-  --lg-hover-highlight: rgba(255, 255, 255, 0.34);
+  --lg-hover-highlight: rgba(255, 255, 255, 0.24);
 
   --surface: rgba(255, 255, 255, 0.34);
   --surface-2: rgba(255, 255, 255, 0.2);
@@ -595,7 +595,7 @@ html[data-theme="dark"] {
   --lg-tint-bottom: rgba(17, 24, 36, 0.38);
   --lg-tint-hover: rgba(45, 57, 77, 0.7);
   --lg-rim-top: rgba(255, 255, 255, 0.28);
-  --lg-hover-highlight: rgba(255, 255, 255, 0.14);
+  --lg-hover-highlight: rgba(255, 255, 255, 0.06);
   --lg-rim-side: rgba(255, 255, 255, 0.12);
   --lg-rim-bottom: rgba(255, 255, 255, 0.04);
   --lg-border: rgba(255, 255, 255, 0.16);
