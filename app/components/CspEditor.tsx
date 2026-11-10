@@ -147,8 +147,7 @@ export function CspEditor({
         </button>
       </div>
       <div className="hint" style={{ marginTop: 10 }}>
-        `script-src` 中的 <code>{"{{nonce}}"}</code> 会由服务端替换为每个请求的 nonce；
-        保存时至少会自动补回 nonce。其它指令和来源可以自由增删。
+        {"`script-src` 中的 {{nonce}} 会由服务端替换为每个请求的 nonce； 保存时至少会自动补回 nonce。其它指令和来源可以自由增删。"}
       </div>
     </div>
   );
