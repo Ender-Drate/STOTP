@@ -219,9 +219,9 @@ export function PreferencesDock() {
       </button>
       <span className="pref-divider" aria-hidden="true" />
       <button type="button" className="pref-btn pref-lang" onClick={toggleLang}
-        title={lang === "zh" ? "Switch to English" : "切换到中文"}
-        aria-label={lang === "zh" ? "Switch to English" : "切换到中文"}>
-        {lang === "zh" ? "EN" : "中"}
+        title={lang === "zh" ? "Switch to English" : "Switch to Chinese"}
+        aria-label={lang === "zh" ? "Switch to English" : "Switch to Chinese"}>
+        {lang === "zh" ? "EN" : "ZH"}
       </button>
     </div>
   );
