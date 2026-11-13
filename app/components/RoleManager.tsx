@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PERMISSION_DEFS, PERMISSION_GROUPS } from "@/lib/permission-defs";
+import { uiText } from "@/lib/ui-i18n";
 
 interface RoleView {
   id: number;
@@ -92,7 +93,7 @@ export function RoleManager({ roles }: { roles: RoleView[] }) {
   }
 
   async function remove(role: RoleView) {
-    if (!confirm(`删除权限等级「${role.name}」？`)) return;
+    if (!confirm(uiText(`删除权限等级「${role.name}」？`))) return;
     setBusy(true);
     setMsg(null);
     try {

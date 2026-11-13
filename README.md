@@ -53,6 +53,9 @@ npm run start
 `npm run start` 只监听 `127.0.0.1:3100`，供同机 nginx 反代；需要局域网直连时用 `npm run start:lan`。
 `build` 和 `start` 前都会执行 Node 版本检查，版本不够会直接报错退出，而不是先显示 Ready 再崩。
 
+需要自包含的部署包时，用 `AUTH_STANDALONE=1 npm run build` 生成 `.next/standalone`（可执行 `node server.js`，
+需把 `.next/static` 复制到 `.next/standalone/.next/static`）。普通 `npm run build` 行为不变。
+
 反向代理必须保留 Host，否则同源校验会报 `bad_origin`：
 
 ```nginx
@@ -398,6 +401,9 @@ GET {AUTH_PUBLIC_URL}/api/oauth/authorize
 ## 自检
 
 ```powershell
+# 中英文词条覆盖（CI 会跑）
+npm run check:i18n
+
 # 终端 1
 $env:AUTH_ADMIN_PASSWORD="admin1234"
 $env:AUTH_PUBLIC_URL="http://127.0.0.1:3100"
@@ -407,6 +413,8 @@ npm run start
 $env:AUTH_ADMIN_PASSWORD="admin1234"
 npm run e2e
 ```
+
+`check:i18n` 会扫描页面、组件、API 错误文案和动态拼接规则，发现英文模式下没有译文的词条时直接失败。
 
 `e2e` 覆盖：注册、管理员登录、创建应用、授权同意、code 换 token、id_token、userinfo、
 refresh 轮换、revoke、公共客户端 PKCE、JWKS、删除应用。

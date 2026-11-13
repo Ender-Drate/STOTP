@@ -5,6 +5,7 @@ import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { PasswordInput } from "./PasswordInput";
 import { encryptPassword } from "@/lib/password-client";
+import { uiText } from "@/lib/ui-i18n";
 
 interface PasskeyItem {
   id: number;
@@ -84,7 +85,7 @@ export function PasskeyPanel({ passkeys, totpEnabled = false }: {
       setMsg({ ok: false, text: "删除 Passkey 前请输入当前密码" });
       return;
     }
-    if (!confirm("删除这个 Passkey？")) return;
+    if (!confirm(uiText("删除这个 Passkey？"))) return;
     setBusy(true);
     try {
       let enc;

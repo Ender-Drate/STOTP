@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { uiText } from "@/lib/ui-i18n";
 
 export function IpClearRiskButton({ ip }: { ip: string }) {
   const router = useRouter();
@@ -9,7 +10,7 @@ export function IpClearRiskButton({ ip }: { ip: string }) {
   const [error, setError] = useState("");
 
   async function clear() {
-    if (!confirm(`清除 ${ip} 的风险？清除前的观测/失败不再计入，新事件继续累计。`)) return;
+    if (!confirm(uiText(`清除 ${ip} 的风险？清除前的观测/失败不再计入，新事件继续累计。`))) return;
     setBusy(true);
     setError("");
     try {

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { uiText } from "@/lib/ui-i18n";
 
 interface LinkItem {
   providerId: number;
@@ -17,7 +18,7 @@ export function ProviderLinksPanel({ links }: { links: LinkItem[] }) {
   const [busy, setBusy] = useState(false);
 
   async function unlink(item: LinkItem) {
-    if (!confirm(`解绑「${item.name}」？解绑后该第三方账户需要重新绑定本地账户。`)) return;
+    if (!confirm(uiText(`解绑「${item.name}」？解绑后该第三方账户需要重新绑定本地账户。`))) return;
     setBusy(true);
     setMsg(null);
     try {

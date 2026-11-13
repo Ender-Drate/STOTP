@@ -248,7 +248,7 @@ export function ProviderManager({
                 <div className="muted small truncate">{provider.clientId}</div>
               </div>
               <span className={`pill ${provider.enabled ? "pill-green" : ""}`}>
-                {provider.enabled ? "启用" : "停用"}
+                {provider.enabled ? "已启用" : "已禁用"}
               </span>
             </div>
             <div className="row" style={{ marginTop: 14, justifyContent: "flex-end" }}>

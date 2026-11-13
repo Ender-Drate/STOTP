@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { uiText } from "@/lib/ui-i18n";
 
 interface SessionView {
   id: string;
@@ -38,9 +39,9 @@ export function SessionsPanel({ sessions }: { sessions: SessionView[] }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function revoke(session: SessionView) {
-    if (!confirm(session.current
+    if (!confirm(uiText(session.current
       ? "退出当前设备？需要重新登录。"
-      : "撤销这个登录会话？")) return;
+      : "撤销这个登录会话？"))) return;
     setBusy(true);
     setMsg(null);
     try {

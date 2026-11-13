@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { uiText } from "@/lib/ui-i18n";
 
 export function RevokeConsentButton({ clientId }: { clientId: string }) {
   const router = useRouter();
@@ -11,14 +12,14 @@ export function RevokeConsentButton({ clientId }: { clientId: string }) {
       className="btn btn-sm btn-danger"
       disabled={busy}
       onClick={async () => {
-        if (!confirm("撤销该应用的授权？相关访问令牌会立即失效。")) return;
+        if (!confirm(uiText("撤销该应用的授权？相关访问令牌会立即失效。"))) return;
         setBusy(true);
         try {
           const res = await fetch(`/api/consents/${encodeURIComponent(clientId)}`, {
             method: "DELETE",
           });
           if (!res.ok) {
-            alert("撤销失败，请重试");
+            alert(uiText("撤销失败，请重试"));
             return;
           }
           router.refresh();

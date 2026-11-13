@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PasswordInput } from "./PasswordInput";
 import { encryptPassword } from "@/lib/password-client";
+import { uiText } from "@/lib/ui-i18n";
 
 interface SetupData {
   secret: string;
@@ -85,7 +86,7 @@ export function TotpPanel({ enabled }: { enabled: boolean }) {
 
   async function disable(event: React.FormEvent) {
     event.preventDefault();
-    if (!confirm("关闭 TOTP 后登录将不再需要验证码，确定吗？")) return;
+    if (!confirm(uiText("关闭 TOTP 后登录将不再需要验证码，确定吗？"))) return;
     setBusy(true);
     setMsg(null);
     try {

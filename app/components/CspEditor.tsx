@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { CspDirective } from "@/lib/csp";
+import { uiText } from "@/lib/ui-i18n";
 
 export function CspEditor({
   initial, defaults, totpEnabled,
@@ -48,7 +49,7 @@ export function CspEditor({
       setMsg({ ok: false, text: "请先在设置中绑定 TOTP" });
       return;
     }
-    if (!confirm("保存后立即生效。错误的 CSP 可能导致页面脚本/样式无法加载，确定保存？")) return;
+    if (!confirm(uiText("保存后立即生效。错误的 CSP 可能导致页面脚本/样式无法加载，确定保存？"))) return;
     setBusy(true);
     setMsg(null);
     try {
