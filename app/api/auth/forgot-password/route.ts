@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
           captcha_required: true,
         });
       }
-      if (!verifyCaptcha(ticket, code, ip)) {
+      if (!verifyCaptcha(ticket, code, ip, "forgot-password")) {
         throw new HttpError(400, "captcha_invalid", "图形验证码不正确", {
           captcha_required: true,
         });

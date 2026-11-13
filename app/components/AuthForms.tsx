@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PasswordInput } from "./PasswordInput";
+import { ShapeCaptcha, type CaptchaPoint } from "./ShapeCaptcha";
 import { encryptPassword } from "@/lib/password-client";
 
 function errorOf(payload: unknown, fallback: string): string {
@@ -19,16 +20,16 @@ export function LoginForm({ next, initialError = "", verified = false }: {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
-  const [captcha, setCaptcha] = useState<{ ticket: string; image: string } | null>(null);
-  const [captchaCode, setCaptchaCode] = useState("");
+  const [captcha, setCaptcha] = useState<{ ticket: string; image: string; prompt: string } | null>(null);
+  const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
 
   async function refreshCaptcha() {
     try {
-      const res = await fetch("/api/auth/captcha", { cache: "no-store" });
+      const res = await fetch("/api/auth/captcha?purpose=login", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (data?.ticket && data?.image) {
-        setCaptcha({ ticket: data.ticket, image: data.image });
-        setCaptchaCode("");
+        setCaptcha({ ticket: data.ticket, image: data.image, prompt: data.prompt });
+        setCaptchaPoint(null);
       }
     } catch {
       // 图形验证码加载失败时保留原错误提示
@@ -38,6 +39,10 @@ export function LoginForm({ next, initialError = "", verified = false }: {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
+    if (captcha && !captchaPoint) {
+      setError("请先点击图中的图形");
+      return;
+    }
     setBusy(true);
     try {
       let encrypted;
@@ -53,7 +58,7 @@ export function LoginForm({ next, initialError = "", verified = false }: {
         body: JSON.stringify({
           username: identifier, remember, next,
           captchaTicket: captcha?.ticket || "",
-          captchaCode,
+          captchaCode: captchaPoint ? `${captchaPoint.x},${captchaPoint.y}` : "",
           ...encrypted,
         }),
       });
@@ -103,17 +108,16 @@ export function LoginForm({ next, initialError = "", verified = false }: {
       {captcha ? (
         <div className="captcha-box">
           <div className="spread" style={{ marginBottom: 6 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={captcha.image} alt="图形验证码" width={160} height={52} />
+            <span className="label" style={{ margin: 0 }}>图形验证码</span>
             <button type="button" className="btn btn-sm btn-ghost" onClick={refreshCaptcha}>
               换一张
             </button>
           </div>
-          <label className="label" htmlFor="captcha-code">图形验证码</label>
-          <input
-            id="captcha-code" className="input mono" value={captchaCode}
-            onChange={(e) => setCaptchaCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5))}
-            autoComplete="off" placeholder="输入图中字符" required
+          <ShapeCaptcha
+            image={captcha.image}
+            prompt={captcha.prompt}
+            point={captchaPoint}
+            onPick={setCaptchaPoint}
           />
         </div>
       ) : null}
@@ -196,16 +200,16 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
   });
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
-  const [captcha, setCaptcha] = useState<{ ticket: string; image: string } | null>(null);
-  const [captchaCode, setCaptchaCode] = useState("");
+  const [captcha, setCaptcha] = useState<{ ticket: string; image: string; prompt: string } | null>(null);
+  const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
 
   async function refreshCaptcha() {
     try {
-      const res = await fetch("/api/auth/captcha", { cache: "no-store" });
+      const res = await fetch("/api/auth/captcha?purpose=register", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (data?.ticket && data?.image) {
-        setCaptcha({ ticket: data.ticket, image: data.image });
-        setCaptchaCode("");
+        setCaptcha({ ticket: data.ticket, image: data.image, prompt: data.prompt });
+        setCaptchaPoint(null);
       }
     } catch {
       // 验证码加载失败时保留页面
@@ -227,6 +231,10 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
       setError("两次输入的密码不一致");
       return;
     }
+    if (captcha && !captchaPoint) {
+      setError("请先点击图中的图形");
+      return;
+    }
     setBusy(true);
     try {
       let encrypted;
@@ -245,7 +253,7 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
           displayName: form.displayName,
           next,
           captchaTicket: captcha?.ticket || "",
-          captchaCode,
+          captchaCode: captchaPoint ? `${captchaPoint.x},${captchaPoint.y}` : "",
           ...encrypted,
         }),
       });
@@ -310,17 +318,16 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
       {captcha ? (
         <div className="captcha-box">
           <div className="spread" style={{ marginBottom: 6 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={captcha.image} alt="图形验证码" width={160} height={52} />
+            <span className="label" style={{ margin: 0 }}>图形验证码</span>
             <button type="button" className="btn btn-sm btn-ghost" onClick={refreshCaptcha}>
               换一张
             </button>
           </div>
-          <label className="label" htmlFor="register-captcha">图形验证码</label>
-          <input
-            id="register-captcha" className="input mono" value={captchaCode}
-            onChange={(e) => setCaptchaCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5))}
-            autoComplete="off" placeholder="输入图中字符" required
+          <ShapeCaptcha
+            image={captcha.image}
+            prompt={captcha.prompt}
+            point={captchaPoint}
+            onPick={setCaptchaPoint}
           />
         </div>
       ) : null}

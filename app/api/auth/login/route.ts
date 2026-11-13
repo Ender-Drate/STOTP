@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
           captcha_required: true,
         });
       }
-      if (!verifyCaptcha(captchaTicket, captchaCode, ip)) {
+      if (!verifyCaptcha(captchaTicket, captchaCode, ip, "login")) {
         throw new HttpError(400, "captcha_invalid", "图形验证码不正确", {
           captcha_required: true,
         });

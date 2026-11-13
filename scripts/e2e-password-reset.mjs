@@ -60,13 +60,13 @@ const oldLogin = await json("/api/auth/login", {
   body: JSON.stringify({ username, password: oldPassword }),
 });
 ok(oldLogin.res.status === 401, "old password rejected");
-const captcha = await json("/api/auth/captcha");
+const captcha = await json("/api/auth/captcha?purpose=login");
 const newLogin = await json("/api/auth/login", {
   method: "POST",
   body: JSON.stringify({
     username, password: newPassword,
     captchaTicket: captcha.body?.ticket || "",
-    captchaCode: captcha.body?.testCode || "",
+    captchaCode: captcha.body?.testAnswer || "",
   }),
 });
 ok(newLogin.res.status === 200, "new password accepted");

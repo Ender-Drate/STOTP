@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PasswordInput } from "./PasswordInput";
+import { ShapeCaptcha, type CaptchaPoint } from "./ShapeCaptcha";
 import { encryptPassword } from "@/lib/password-client";
 
 export function ResetPasswordForm({
@@ -14,18 +15,18 @@ export function ResetPasswordForm({
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [code, setCode] = useState("");
-  const [captcha, setCaptcha] = useState<{ ticket: string; image: string } | null>(null);
-  const [captchaCode, setCaptchaCode] = useState("");
+  const [captcha, setCaptcha] = useState<{ ticket: string; image: string; prompt: string } | null>(null);
+  const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function refreshCaptcha() {
     try {
-      const res = await fetch("/api/auth/captcha", { cache: "no-store" });
+      const res = await fetch("/api/auth/captcha?purpose=reset-password", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (data?.ticket && data?.image) {
-        setCaptcha({ ticket: data.ticket, image: data.image });
-        setCaptchaCode("");
+        setCaptcha({ ticket: data.ticket, image: data.image, prompt: data.prompt });
+        setCaptchaPoint(null);
       }
     } catch {
       // 页面保留错误提示
@@ -47,6 +48,10 @@ export function ResetPasswordForm({
       setError("两次输入的密码不一致");
       return;
     }
+    if (requiresCaptcha && captcha && !captchaPoint) {
+      setError("请先点击图中的图形");
+      return;
+    }
     setBusy(true);
     try {
       let encrypted;
@@ -63,7 +68,7 @@ export function ResetPasswordForm({
           token,
           code,
           captchaTicket: captcha?.ticket || "",
-          captchaCode,
+          captchaCode: captchaPoint ? `${captchaPoint.x},${captchaPoint.y}` : "",
           ...encrypted,
         }),
       });
@@ -107,18 +112,19 @@ export function ResetPasswordForm({
       {requiresCaptcha ? (
         <div className="captcha-box">
           <div className="spread" style={{ marginBottom: 6 }}>
-            {captcha ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={captcha.image} alt="图形验证码" width={160} height={52} />
-            ) : <span className="small muted">验证码加载中…</span>}
+            <span className="label" style={{ margin: 0 }}>图形验证码</span>
             <button type="button" className="btn btn-sm btn-ghost" onClick={refreshCaptcha}>
               换一张
             </button>
           </div>
-          <label className="label" htmlFor="reset-captcha">图形验证码</label>
-          <input id="reset-captcha" className="input mono" value={captchaCode}
-            onChange={(e) => setCaptchaCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5))}
-            autoComplete="off" placeholder="输入图中字符" required />
+          {captcha ? (
+            <ShapeCaptcha
+              image={captcha.image}
+              prompt={captcha.prompt}
+              point={captchaPoint}
+              onPick={setCaptchaPoint}
+            />
+          ) : <span className="small muted">验证码加载中…</span>}
         </div>
       ) : null}
       <button className="btn btn-primary" style={{ width: "100%", height: 42 }} disabled={busy}>
