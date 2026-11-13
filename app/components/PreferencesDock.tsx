@@ -54,7 +54,17 @@ export function PreferencesDock() {
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
-    document.title = lang === "zh" ? "STOTP 账户" : "STOTP Account";
+    const syncTitle = () => {
+      const next = lang === "zh"
+        ? (document.title === "STOTP Account" ? "STOTP 账户" : document.title)
+        : translateText(document.title);
+      if (next !== document.title) document.title = next;
+    };
+    syncTitle();
+    // Next re-applies the metadata title during hydration/navigation, so keep
+    // watching <title> instead of only setting it once.
+    const titleObserver = new MutationObserver(syncTitle);
+    titleObserver.observe(document.head, { childList: true, subtree: true, characterData: true });
 
     function ignored(node: Node): boolean {
       const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node as Element;
@@ -167,6 +177,7 @@ export function PreferencesDock() {
       restoreAll();
     }
     return () => {
+      titleObserver.disconnect();
       observer.current?.disconnect();
       observer.current = null;
     };
