@@ -390,6 +390,22 @@ select.input {
 .captcha-box img { border-radius: 8px; display: block; max-width: 100%; }
 .captcha-box .label { display: block; margin: 4px 0 6px; }
 .captcha-box .input { width: 100%; }
+.captcha-prompt { font-size: 13px; font-weight: 650; margin: 2px 0 8px; }
+.captcha-canvas {
+  position: relative; display: inline-block; max-width: 100%;
+  line-height: 0; cursor: crosshair;
+}
+.captcha-canvas img {
+  display: block; max-width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: 9px;
+}
+.captcha-pin {
+  position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px;
+  border: 2px solid #0071e3; border-radius: 50%;
+  background: rgba(0, 113, 227, 0.14);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.16);
+  pointer-events: none;
+}
 .password-field { position: relative; display: block; }
 .password-field .password-input { width: 100%; padding-right: 58px; }
 .password-toggle {

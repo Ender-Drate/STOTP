@@ -39,6 +39,7 @@ jobs:
       - run: npm run e2e:security
       - run: npm run e2e:profile-email
       - run: npm run e2e:rbac
+      - run: npm run e2e:captcha
       - run: npm run e2e
       - name: Stop auth-center
         if: always()

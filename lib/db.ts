@@ -306,7 +306,10 @@ CREATE TABLE IF NOT EXISTS totp_pending (
 CREATE TABLE IF NOT EXISTS captcha_challenges (
   token_hash TEXT PRIMARY KEY,
   code_hash TEXT NOT NULL,
+  answer TEXT NOT NULL DEFAULT '',
   ip TEXT NOT NULL,
+  purpose TEXT NOT NULL DEFAULT 'login',
+  attempts INTEGER NOT NULL DEFAULT 0,
   expires_at INTEGER NOT NULL,
   used INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
@@ -508,6 +511,17 @@ export function getDb(): DatabaseSync {
     .all() as Array<{ name: string }>;
   if (!linkTicketColumns.some((column) => column.name === "user_id")) {
     db.exec("ALTER TABLE provider_link_tickets ADD COLUMN user_id INTEGER");
+  }
+  const captchaColumns = db.prepare("PRAGMA table_info(captcha_challenges)")
+    .all() as Array<{ name: string }>;
+  if (!captchaColumns.some((column) => column.name === "purpose")) {
+    db.exec("ALTER TABLE captcha_challenges ADD COLUMN purpose TEXT NOT NULL DEFAULT 'login'");
+  }
+  if (!captchaColumns.some((column) => column.name === "attempts")) {
+    db.exec("ALTER TABLE captcha_challenges ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!captchaColumns.some((column) => column.name === "answer")) {
+    db.exec("ALTER TABLE captcha_challenges ADD COLUMN answer TEXT NOT NULL DEFAULT ''");
   }
   const sessionColumns = db.prepare("PRAGMA table_info(sessions)")
     .all() as Array<{ name: string }>;

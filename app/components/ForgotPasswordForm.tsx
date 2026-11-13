@@ -2,21 +2,22 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ShapeCaptcha, type CaptchaPoint } from "./ShapeCaptcha";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
-  const [captcha, setCaptcha] = useState<{ ticket: string; image: string } | null>(null);
-  const [captchaCode, setCaptchaCode] = useState("");
+  const [captcha, setCaptcha] = useState<{ ticket: string; image: string; prompt: string } | null>(null);
+  const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function refreshCaptcha() {
     try {
-      const res = await fetch("/api/auth/captcha", { cache: "no-store" });
+      const res = await fetch("/api/auth/captcha?purpose=forgot-password", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (data?.ticket && data?.image) {
-        setCaptcha({ ticket: data.ticket, image: data.image });
-        setCaptchaCode("");
+        setCaptcha({ ticket: data.ticket, image: data.image, prompt: data.prompt });
+        setCaptchaPoint(null);
       }
     } catch {
       // 保留页面
@@ -27,6 +28,10 @@ export function ForgotPasswordForm() {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (captcha && !captchaPoint) {
+      setMsg({ ok: false, text: "请先点击图中的图形" });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -36,7 +41,7 @@ export function ForgotPasswordForm() {
         body: JSON.stringify({
           email,
           captchaTicket: captcha?.ticket || "",
-          captchaCode,
+          captchaCode: captchaPoint ? `${captchaPoint.x},${captchaPoint.y}` : "",
         }),
       });
       const data = await res.json().catch(() => null);
@@ -65,16 +70,17 @@ export function ForgotPasswordForm() {
       {captcha ? (
         <div className="captcha-box">
           <div className="spread" style={{ marginBottom: 6 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={captcha.image} alt="图形验证码" width={160} height={52} />
+            <span className="label" style={{ margin: 0 }}>图形验证码</span>
             <button type="button" className="btn btn-sm btn-ghost" onClick={refreshCaptcha}>
               换一张
             </button>
           </div>
-          <label className="label" htmlFor="forgot-captcha">图形验证码</label>
-          <input id="forgot-captcha" className="input mono" value={captchaCode}
-            autoComplete="off" placeholder="输入图中字符" required
-            onChange={(e) => setCaptchaCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5))} />
+          <ShapeCaptcha
+            image={captcha.image}
+            prompt={captcha.prompt}
+            point={captchaPoint}
+            onPick={setCaptchaPoint}
+          />
         </div>
       ) : null}
       <button className="btn btn-primary" style={{ width: "100%", height: 42, marginTop: 8 }} disabled={busy}>

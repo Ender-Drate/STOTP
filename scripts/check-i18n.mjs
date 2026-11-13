@@ -113,6 +113,11 @@ const RUNTIME_SAMPLES = [
   "删除「My App」？相关授权与令牌会一并失效。",
   "1s 后可重发",
   "· 搜索「admin」",
+  "点击图中的圆形",
+  "点击图中的三角形",
+  "点击图中的五角星",
+  "点击图中的菱形",
+  "请先点击图中的图形",
 ];
 const runtimeIssues = RUNTIME_SAMPLES.filter((sample) => CJK.test(translateText(sample)));
 if (runtimeIssues.length) {
