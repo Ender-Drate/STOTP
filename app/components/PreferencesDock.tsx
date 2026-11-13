@@ -75,7 +75,9 @@ export function PreferencesDock() {
           attrOriginals.current.set(el, saved);
           attrNodes.current.add(el);
         }
-        if (!(attr in saved)) saved[attr] = value;
+        // Keep the latest Chinese source so switching back to zh restores the
+        // current value, not a stale one.
+        saved[attr] = value;
         el.setAttribute(attr, translateText(value.trim()));
       }
     }
@@ -90,7 +92,7 @@ export function PreferencesDock() {
         if (!core || !hasTranslation(core)) return;
         const translated = translateText(core);
         if (translated === core) return;
-        if (!originals.current.has(node)) originals.current.set(node, raw);
+        originals.current.set(node, raw);
         translatedNodes.current.add(node);
         node.nodeValue = `${match[1]}${translated}${match[3]}`;
         return;
@@ -148,11 +150,16 @@ export function PreferencesDock() {
           if (mutation.type === "characterData" && mutation.target.isConnected) {
             translateNode(mutation.target);
           }
+          if (mutation.type === "attributes" && mutation.target instanceof Element) {
+            translateElementAttributes(mutation.target);
+          }
           for (const node of mutation.addedNodes) translateNode(node);
         }
       });
       observer.current.observe(document.body, {
         childList: true, subtree: true, characterData: true,
+        attributes: true,
+        attributeFilter: ["placeholder", "title", "aria-label", "aria-description", "alt"],
       });
     } else {
       observer.current?.disconnect();

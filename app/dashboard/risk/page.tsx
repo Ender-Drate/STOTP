@@ -154,7 +154,7 @@ export default async function RiskPage() {
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-head">
           <div className="card-title">{settings.visitWindowHours} 小时访问 IP</div>
-          <span className="pill">{visits.length} 个</span>
+          <span className="pill">{visits.length}</span>
         </div>
         <div className="table-wrap">
           <table className="table">

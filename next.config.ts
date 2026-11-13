@@ -7,6 +7,8 @@ if (process.env.NODE_ENV === "production" && process.env.AUTH_E2E === "1" && !lo
 }
 
 const nextConfig: NextConfig = {
+  // Opt-in standalone output for a self-contained server bundle.
+  ...(process.env.AUTH_STANDALONE === "1" ? { output: "standalone" as const } : {}),
   poweredByHeader: false,
   serverExternalPackages: ["ip2region"],
   async headers() {

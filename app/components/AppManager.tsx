@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import type { ClientView } from "@/lib/clients";
 import { CopyButton } from "./CopyButton";
 import { Icon } from "./Icon";
+import { uiText } from "@/lib/ui-i18n";
 
 const ALL_SCOPES = ["openid", "profile", "email", "head", "permission", "offline_access"];
 
@@ -123,7 +124,7 @@ export function AppManager({ initialClients }: { initialClients: ClientView[] })
   }
 
   async function rotate(client: ClientView) {
-    if (!confirm(`重新生成「${client.name}」的 Client Secret？旧密钥立即失效。`)) return;
+    if (!confirm(uiText(`重新生成「${client.name}」的 Client Secret？旧密钥立即失效。`))) return;
     const res = await fetch(`/api/admin/apps/${client.id}/secret`, { method: "POST" });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
@@ -134,7 +135,7 @@ export function AppManager({ initialClients }: { initialClients: ClientView[] })
   }
 
   async function remove(client: ClientView) {
-    if (!confirm(`删除「${client.name}」？相关授权与令牌会一并失效。`)) return;
+    if (!confirm(uiText(`删除「${client.name}」？相关授权与令牌会一并失效。`))) return;
     const res = await fetch(`/api/admin/apps/${client.id}`, { method: "DELETE" });
     if (!res.ok) {
       const data = await res.json().catch(() => null);
@@ -260,7 +261,7 @@ export function AppManager({ initialClients }: { initialClients: ClientView[] })
                 </td>
                 <td>
                   <span className={`pill ${client.status === "active" ? "pill-green" : "pill-red"}`}>
-                    {client.status === "active" ? "启用" : "停用"}
+                    {client.status === "active" ? "已启用" : "已禁用"}
                   </span>
                 </td>
                 <td className="muted small">{new Date(client.createdAt).toLocaleString("zh-CN")}</td>
