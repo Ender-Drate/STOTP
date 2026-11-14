@@ -16,7 +16,7 @@ export function ResetPasswordForm({
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [code, setCode] = useState("");
-  const [captcha, setCaptcha] = useState<{ image: string } | null>(null);
+  const [captcha, setCaptcha] = useState<{ image: string; prompt: string } | null>(null);
   const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,7 +26,7 @@ export function ResetPasswordForm({
       const res = await fetch(captchaUrl("reset-password"), { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (data?.image) {
-        setCaptcha({ image: data.image });
+        setCaptcha({ image: data.image, prompt: data.prompt });
         setCaptchaPoint(null);
       }
     } catch {
@@ -120,6 +120,7 @@ export function ResetPasswordForm({
           {captcha ? (
             <ShapeCaptcha
               image={captcha.image}
+              prompt={captcha.prompt}
               point={captchaPoint}
               onPick={setCaptchaPoint}
             />
