@@ -21,7 +21,7 @@ export function LoginForm({ next, initialError = "", verified = false }: {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
-  const [captcha, setCaptcha] = useState<{ image: string } | null>(null);
+  const [captcha, setCaptcha] = useState<{ image: string; prompt: string } | null>(null);
   const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
 
   async function refreshCaptcha() {
@@ -29,7 +29,7 @@ export function LoginForm({ next, initialError = "", verified = false }: {
       const res = await fetch(captchaUrl("login"), { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (data?.image) {
-        setCaptcha({ image: data.image });
+        setCaptcha({ image: data.image, prompt: data.prompt });
         setCaptchaPoint(null);
       }
     } catch {
@@ -115,6 +115,7 @@ export function LoginForm({ next, initialError = "", verified = false }: {
           </div>
           <ShapeCaptcha
             image={captcha.image}
+            prompt={captcha.prompt}
             point={captchaPoint}
             onPick={setCaptchaPoint}
           />
@@ -199,7 +200,7 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
   });
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
-  const [captcha, setCaptcha] = useState<{ image: string } | null>(null);
+  const [captcha, setCaptcha] = useState<{ image: string; prompt: string } | null>(null);
   const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
 
   async function refreshCaptcha() {
@@ -207,7 +208,7 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
       const res = await fetch(captchaUrl("register"), { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (data?.image) {
-        setCaptcha({ image: data.image });
+        setCaptcha({ image: data.image, prompt: data.prompt });
         setCaptchaPoint(null);
       }
     } catch {
@@ -323,6 +324,7 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
           </div>
           <ShapeCaptcha
             image={captcha.image}
+            prompt={captcha.prompt}
             point={captchaPoint}
             onPick={setCaptchaPoint}
           />

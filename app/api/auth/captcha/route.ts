@@ -20,12 +20,12 @@ export async function GET(req: NextRequest) {
       throw new HttpError(400, "invalid_request", "验证码用途不合法");
     }
     const lang: CaptchaLang = req.nextUrl.searchParams.get("lang") === "en" ? "en" : "zh";
-    const { token, image } = await generateCaptcha(ip, purpose, lang);
+    const { token, image, prompt } = await generateCaptcha(ip, purpose, lang);
 
     // The challenge token never reaches JavaScript: it lives in an HttpOnly
-    // cookie, and the browser only receives the rendered image.
+    // cookie. The response only contains the public image and its instruction.
     const response = NextResponse.json(
-      { image },
+      { image, prompt },
       { headers: { "Cache-Control": "no-store" } }
     );
     response.cookies.set(CAPTCHA_COOKIE, token, {

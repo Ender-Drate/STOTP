@@ -53,13 +53,17 @@ ok(noCaptcha.res.status === 400 && noCaptcha.body?.captcha_required === true,
 const captcha = await fetchCaptcha(BASE, "login");
 ok(captcha.res.status === 200 && Boolean(captcha.body?.image),
   "captcha challenge issued");
-ok(Object.keys(captcha.body || {}).join(",") === "image",
-  "captcha response contains only the image", Object.keys(captcha.body || {}).join(","));
+ok(Object.keys(captcha.body || {}).join(",") === "image,prompt",
+  "captcha response contains only image + public prompt", Object.keys(captcha.body || {}).join(","));
+ok(typeof captcha.body?.prompt === "string" && captcha.body.prompt.length > 0,
+  "captcha includes a public instruction", captcha.body?.prompt);
+ok(!("ticket" in (captcha.body || {})) && !("testAnswer" in (captcha.body || {})),
+  "captcha response has no ticket or answer");
 ok(String(captcha.body?.image || "").startsWith("data:image/png;base64,"),
   "captcha image is a PNG data URI");
 const png = Buffer.from(String(captcha.body?.image || "").split(",")[1] || "", "base64");
-ok(png.readUInt32BE(16) === 420 && png.readUInt32BE(20) === 344,
-  "captcha image is 420x344");
+ok(png.readUInt32BE(16) === 420 && png.readUInt32BE(20) === 300,
+  "captcha image is 420x300");
 ok(captcha.cookie.startsWith("ac_captcha=") && captcha.httpOnly,
   "captcha token is set as an HttpOnly cookie");
 

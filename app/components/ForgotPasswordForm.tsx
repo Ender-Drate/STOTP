@@ -7,7 +7,7 @@ import { captchaUrl } from "@/lib/captcha-client";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
-  const [captcha, setCaptcha] = useState<{ image: string } | null>(null);
+  const [captcha, setCaptcha] = useState<{ image: string; prompt: string } | null>(null);
   const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -17,7 +17,7 @@ export function ForgotPasswordForm() {
       const res = await fetch(captchaUrl("forgot-password"), { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (data?.image) {
-        setCaptcha({ image: data.image });
+        setCaptcha({ image: data.image, prompt: data.prompt });
         setCaptchaPoint(null);
       }
     } catch {
@@ -77,6 +77,7 @@ export function ForgotPasswordForm() {
           </div>
           <ShapeCaptcha
             image={captcha.image}
+            prompt={captcha.prompt}
             point={captchaPoint}
             onPick={setCaptchaPoint}
           />

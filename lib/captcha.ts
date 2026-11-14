@@ -8,8 +8,7 @@ import { randomToken, sha256 } from "./crypto";
 const TTL = 3 * 60;
 const MAX_ATTEMPTS = 5;
 const WIDTH = 420;
-const HEIGHT = 344;
-const PROMPT_HEIGHT = 44;
+const HEIGHT = 300;
 const UNIT = 80;
 const MAX_POLYGON_POINTS = 64;
 
@@ -83,12 +82,6 @@ const COLOR_NAMES_EN: Record<string, string> = {
   "白色": "white", "黄色": "yellow", "红色": "red", "蓝色": "blue",
   "绿色": "green", "紫色": "purple", "橙色": "orange", "青色": "teal",
 };
-
-function escapeXml(value: string): string {
-  return value.replace(/[<>&"']/g, (char) => ({
-    "<": "&lt;", ">": "&gt;", "&": "&amp;", "\"": "&quot;", "'": "&apos;",
-  }[char] || char));
-}
 
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
@@ -349,7 +342,6 @@ function buildScene(lang: CaptchaLang): {
       nextId += 1;
     }
 
-    for (const object of objects) object.y += PROMPT_HEIGHT;
     const geometries = new Map(objects.map((object) => [object.id, objectGeometry(object)]));
     const targetPolygon = geometries.get(target.id)?.polygon;
     if (!targetPolygon) continue;
@@ -372,7 +364,7 @@ function buildScene(lang: CaptchaLang): {
   return null;
 }
 
-function sceneSvg(objects: SceneObject[], prompt: string): string {
+function sceneSvg(objects: SceneObject[]): string {
   const geometries = new Map(objects.map((object) => [object.id, objectGeometry(object)]));
   const ordered = [...objects].sort((a, b) => b.depth - a.depth);
   const shadows = ordered.map((object) => {
@@ -390,12 +382,12 @@ function sceneSvg(objects: SceneObject[], prompt: string): string {
       <stop offset="1" stop-color="${darken(object.color.hex, 0.28)}"/>
     </radialGradient>`).join("");
   const grid = Array.from({ length: 9 }, (_, index) => {
-    const y = 110 + PROMPT_HEIGHT + index * index * 3.2;
+    const y = 110 + index * index * 3.2;
     return `<line x1="0" y1="${y.toFixed(1)}" x2="${WIDTH}" y2="${y.toFixed(1)}" `
       + `stroke="rgba(15,23,42,0.07)" stroke-width="1"/>`;
   }).join("") + Array.from({ length: 11 }, (_, index) => {
     const bottomX = -80 + index * 58;
-    return `<line x1="210" y1="${110 + PROMPT_HEIGHT}" x2="${bottomX}" y2="${HEIGHT}" `
+    return `<line x1="210" y1="110" x2="${bottomX}" y2="${HEIGHT}" `
       + `stroke="rgba(15,23,42,0.06)" stroke-width="1"/>`;
   }).join("");
 
@@ -411,15 +403,10 @@ function sceneSvg(objects: SceneObject[], prompt: string): string {
     ${spheres}
   </defs>
   <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#sky)"/>
-  <rect y="${110 + PROMPT_HEIGHT}" width="${WIDTH}" height="${HEIGHT - 110 - PROMPT_HEIGHT}" fill="url(#floor)"/>
+  <rect y="110" width="${WIDTH}" height="${HEIGHT - 110}" fill="url(#floor)"/>
   ${grid}
   ${shadows}
   ${draws}
-  <rect width="${WIDTH}" height="${PROMPT_HEIGHT}" fill="rgba(255,255,255,0.94)"/>
-  <line x1="0" y1="${PROMPT_HEIGHT}" x2="${WIDTH}" y2="${PROMPT_HEIGHT}" stroke="rgba(15,23,42,0.1)"/>
-  <text x="${WIDTH / 2}" y="28" text-anchor="middle" font-size="13.5" font-weight="600"
-    font-family="'PingFang SC', 'Microsoft YaHei', 'DejaVu Sans', Arial, sans-serif"
-    fill="#1f2937">${escapeXml(prompt)}</text>
 </svg>`;
 }
 
@@ -474,7 +461,7 @@ export async function generateCaptcha(
   ip: string,
   purpose: CaptchaPurpose,
   lang: CaptchaLang,
-): Promise<{ token: string; image: string }> {
+): Promise<{ token: string; image: string; prompt: string }> {
   const scene = buildScene(lang);
   if (!scene) throw new Error("captcha scene generation failed");
   const answer: CaptchaAnswer = { target: scene.target, occluders: scene.occluders };
@@ -488,10 +475,11 @@ export async function generateCaptcha(
   ).run(sha256(token), sha256(serialized), serialized, ip, purpose, now + TTL, now);
   getDb().prepare("DELETE FROM captcha_challenges WHERE expires_at < ?").run(now - 60);
 
-  const png = await sharp(Buffer.from(sceneSvg(scene.objects, scene.prompt))).png().toBuffer();
+  const png = await sharp(Buffer.from(sceneSvg(scene.objects))).png().toBuffer();
   return {
     token,
     image: `data:image/png;base64,${png.toString("base64")}`,
+    prompt: scene.prompt,
   };
 }
 
