@@ -1,9 +1,9 @@
 # Third-party notices
 
-The shape-click CAPTCHA in `lib/captcha.ts` and `app/components/ShapeCaptcha.tsx`
-was adapted from the following MIT-licensed projects. Their concepts and shape
-drawing/verification approaches informed this implementation; the code here is
-a TypeScript rewrite for this project.
+The 3D scene CAPTCHA in `lib/captcha.ts` and the click interaction in
+`app/components/ShapeCaptcha.tsx` were adapted from the following MIT-licensed
+projects. Their concepts and shape drawing/verification approaches informed
+this implementation; the code here is a TypeScript rewrite for this project.
 
 ## sswahn/captcha
 

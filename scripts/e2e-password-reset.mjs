@@ -1,3 +1,5 @@
+import { fetchCaptcha, solveFromDb } from "./captcha-test-helper.mjs";
+
 const BASE = process.env.AUTH_BASE_URL || "http://127.0.0.1:3100";
 let failures = 0;
 function ok(condition, label, extra = "") {
@@ -60,13 +62,13 @@ const oldLogin = await json("/api/auth/login", {
   body: JSON.stringify({ username, password: oldPassword }),
 });
 ok(oldLogin.res.status === 401, "old password rejected");
-const captcha = await json("/api/auth/captcha?purpose=login");
+const captcha = await fetchCaptcha(BASE, "login");
 const newLogin = await json("/api/auth/login", {
   method: "POST",
+  headers: { Cookie: captcha.cookie },
   body: JSON.stringify({
     username, password: newPassword,
-    captchaTicket: captcha.body?.ticket || "",
-    captchaCode: captcha.body?.testAnswer || "",
+    captchaCode: solveFromDb(captcha.cookie),
   }),
 });
 ok(newLogin.res.status === 200, "new password accepted");

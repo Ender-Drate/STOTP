@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PasswordInput } from "./PasswordInput";
 import { ShapeCaptcha, type CaptchaPoint } from "./ShapeCaptcha";
 import { encryptPassword } from "@/lib/password-client";
+import { captchaUrl } from "@/lib/captcha-client";
 
 function errorOf(payload: unknown, fallback: string): string {
   const data = payload as { error?: { message?: string } } | null;
@@ -20,15 +21,15 @@ export function LoginForm({ next, initialError = "", verified = false }: {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
-  const [captcha, setCaptcha] = useState<{ ticket: string; image: string; prompt: string } | null>(null);
+  const [captcha, setCaptcha] = useState<{ image: string } | null>(null);
   const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
 
   async function refreshCaptcha() {
     try {
-      const res = await fetch("/api/auth/captcha?purpose=login", { cache: "no-store" });
+      const res = await fetch(captchaUrl("login"), { cache: "no-store" });
       const data = await res.json().catch(() => null);
-      if (data?.ticket && data?.image) {
-        setCaptcha({ ticket: data.ticket, image: data.image, prompt: data.prompt });
+      if (data?.image) {
+        setCaptcha({ image: data.image });
         setCaptchaPoint(null);
       }
     } catch {
@@ -57,7 +58,6 @@ export function LoginForm({ next, initialError = "", verified = false }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: identifier, remember, next,
-          captchaTicket: captcha?.ticket || "",
           captchaCode: captchaPoint ? `${captchaPoint.x},${captchaPoint.y}` : "",
           ...encrypted,
         }),
@@ -115,7 +115,6 @@ export function LoginForm({ next, initialError = "", verified = false }: {
           </div>
           <ShapeCaptcha
             image={captcha.image}
-            prompt={captcha.prompt}
             point={captchaPoint}
             onPick={setCaptchaPoint}
           />
@@ -200,15 +199,15 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
   });
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
-  const [captcha, setCaptcha] = useState<{ ticket: string; image: string; prompt: string } | null>(null);
+  const [captcha, setCaptcha] = useState<{ image: string } | null>(null);
   const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
 
   async function refreshCaptcha() {
     try {
-      const res = await fetch("/api/auth/captcha?purpose=register", { cache: "no-store" });
+      const res = await fetch(captchaUrl("register"), { cache: "no-store" });
       const data = await res.json().catch(() => null);
-      if (data?.ticket && data?.image) {
-        setCaptcha({ ticket: data.ticket, image: data.image, prompt: data.prompt });
+      if (data?.image) {
+        setCaptcha({ image: data.image });
         setCaptchaPoint(null);
       }
     } catch {
@@ -252,7 +251,6 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
           email: form.email,
           displayName: form.displayName,
           next,
-          captchaTicket: captcha?.ticket || "",
           captchaCode: captchaPoint ? `${captchaPoint.x},${captchaPoint.y}` : "",
           ...encrypted,
         }),
@@ -325,7 +323,6 @@ export function RegisterForm({ next = "/dashboard", initialError = "" }: {
           </div>
           <ShapeCaptcha
             image={captcha.image}
-            prompt={captcha.prompt}
             point={captchaPoint}
             onPick={setCaptchaPoint}
           />

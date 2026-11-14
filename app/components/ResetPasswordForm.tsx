@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PasswordInput } from "./PasswordInput";
 import { ShapeCaptcha, type CaptchaPoint } from "./ShapeCaptcha";
 import { encryptPassword } from "@/lib/password-client";
+import { captchaUrl } from "@/lib/captcha-client";
 
 export function ResetPasswordForm({
   token, requiresTotp, requiresCaptcha,
@@ -15,17 +16,17 @@ export function ResetPasswordForm({
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [code, setCode] = useState("");
-  const [captcha, setCaptcha] = useState<{ ticket: string; image: string; prompt: string } | null>(null);
+  const [captcha, setCaptcha] = useState<{ image: string } | null>(null);
   const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function refreshCaptcha() {
     try {
-      const res = await fetch("/api/auth/captcha?purpose=reset-password", { cache: "no-store" });
+      const res = await fetch(captchaUrl("reset-password"), { cache: "no-store" });
       const data = await res.json().catch(() => null);
-      if (data?.ticket && data?.image) {
-        setCaptcha({ ticket: data.ticket, image: data.image, prompt: data.prompt });
+      if (data?.image) {
+        setCaptcha({ image: data.image });
         setCaptchaPoint(null);
       }
     } catch {
@@ -67,7 +68,6 @@ export function ResetPasswordForm({
         body: JSON.stringify({
           token,
           code,
-          captchaTicket: captcha?.ticket || "",
           captchaCode: captchaPoint ? `${captchaPoint.x},${captchaPoint.y}` : "",
           ...encrypted,
         }),
@@ -120,7 +120,6 @@ export function ResetPasswordForm({
           {captcha ? (
             <ShapeCaptcha
               image={captcha.image}
-              prompt={captcha.prompt}
               point={captchaPoint}
               onPick={setCaptchaPoint}
             />

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PUBLIC_URL, TRUST_PROXY } from "./config";
 import { getDb, nowSec } from "./db";
 import { firstValidIp } from "./ip";
+import { getDefense } from "./active-defense";
 
 export class HttpError extends Error {
   status: number;
@@ -17,13 +18,18 @@ export class HttpError extends Error {
 
 export function errorResponse(error: unknown): NextResponse {
   if (error instanceof HttpError) {
+    const headers: Record<string, string> = { "Cache-Control": "no-store" };
+    const retry = error.details?.retry_after;
+    if (typeof retry === "number" && Number.isFinite(retry)) {
+      headers["Retry-After"] = String(Math.max(1, Math.ceil(retry)));
+    }
     return NextResponse.json(
       {
         ok: false,
         error: { code: error.code, message: error.message },
         ...(error.details || {}),
       },
-      { status: error.status, headers: { "Cache-Control": "no-store" } }
+      { status: error.status, headers }
     );
   }
   console.error("[auth-center]", error);
@@ -155,8 +161,26 @@ export function rateLimit(key: string, max: number, windowSeconds: number): bool
   return (row?.count ?? 1) <= max;
 }
 
+/** 主动防护：命中临时限流/封禁的 IP 直接拒绝。 */
+export function assertNotDefended(req: NextRequest): void {
+  const defense = getDefense(clientIp(req));
+  if (!defense) return;
+  const remaining = Math.max(1, defense.until - nowSec());
+  throw new HttpError(
+    defense.action === "block" ? 403 : 429,
+    defense.action === "block" ? "ip_defense_block" : "ip_defense_throttle",
+    defense.action === "block" ? "当前 IP 已被临时限制" : "请求繁忙，请稍后再试",
+    {
+      defense_action: defense.action,
+      defense_until: defense.until,
+      retry_after: remaining,
+    }
+  );
+}
+
 /** 浏览器同源校验，防止跨站表单提交；无 Origin 的服务器调用放行。 */
 export function assertSameOrigin(req: NextRequest) {
+  assertNotDefended(req);
   const method = req.method.toUpperCase();
   const unsafe = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
   const origin = req.headers.get("origin");

@@ -19,9 +19,27 @@ function webglInfo(): { vendor: string; renderer: string } {
   }
 }
 
+function automationArtifacts(): boolean {
+  try {
+    const scope = window as unknown as Record<string, unknown>;
+    const markers = [
+      "__playwright", "__puppeteer", "__webdriver_evaluate", "__selenium_evaluate",
+      "__fxdriver_evaluate", "__driver_evaluate", "_phantom", "callPhantom",
+      "domAutomation", "__webdriver_script_func",
+    ];
+    if (markers.some((key) => key in scope)) return true;
+    return Object.keys(scope).some((key) => key.startsWith("cdc_")
+      || key.startsWith("__webdriver") || key.startsWith("__pw"));
+  } catch {
+    return false;
+  }
+}
+
 function collectSignals() {
   const nav = navigator as Navigator & {
     deviceMemory?: number;
+    pdfViewerEnabled?: boolean;
+    maxTouchPoints?: number;
     userAgentData?: { mobile?: boolean; platform?: string };
   };
   const gl = webglInfo();
@@ -29,6 +47,7 @@ function collectSignals() {
   return {
     webdriver: navigator.webdriver === true,
     headless: /headlesschrome|phantomjs|puppeteer|playwright|selenium/i.test(ua),
+    cdp: automationArtifacts(),
     platform: navigator.platform || "",
     languages: Array.from(navigator.languages || []),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
@@ -37,10 +56,16 @@ function collectSignals() {
       height: window.screen?.height || 0,
       colorDepth: window.screen?.colorDepth || 0,
     },
+    screenAvail: {
+      width: window.screen?.availWidth || 0,
+      height: window.screen?.availHeight || 0,
+    },
     hardwareConcurrency: navigator.hardwareConcurrency || 0,
     deviceMemory: nav.deviceMemory || 0,
     plugins: navigator.plugins?.length || 0,
     mimeTypes: navigator.mimeTypes?.length || 0,
+    pdfViewerEnabled: typeof nav.pdfViewerEnabled === "boolean" ? nav.pdfViewerEnabled : undefined,
+    maxTouchPoints: nav.maxTouchPoints || 0,
     webglVendor: gl.vendor,
     webglRenderer: gl.renderer,
     outerWidth: window.outerWidth || 0,

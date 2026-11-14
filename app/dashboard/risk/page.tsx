@@ -11,6 +11,8 @@ import { RiskSettingsForm } from "@/app/components/RiskSettingsForm";
 import { IpRulesPanel } from "@/app/components/IpRulesPanel";
 import { IpDetailsButton } from "@/app/components/IpDetailsButton";
 import { IpClearRiskButton } from "@/app/components/IpClearRiskButton";
+import { ActiveDefensePanel } from "@/app/components/ActiveDefensePanel";
+import { activeDefenseEnabled, defenseRemaining, listDefenses } from "@/lib/active-defense";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +70,17 @@ export default async function RiskPage() {
     (item) => item.level === "high" || item.level === "critical"
   ).length;
   const canClearIpRisk = hasPermission(me, "risk.manage");
+  const defenseOn = activeDefenseEnabled();
+  const activeDefenses = canClearIpRisk
+    ? listDefenses().map((defense) => ({
+      ip: defense.ip,
+      action: defense.action,
+      reason: defense.reason,
+      level: defense.level,
+      score: defense.score,
+      remaining: defenseRemaining(defense),
+    }))
+    : [];
   const rows = getDb().prepare(
     `SELECT audit.*, users.username FROM audit
      LEFT JOIN users ON users.id = audit.user_id
@@ -106,6 +119,12 @@ export default async function RiskPage() {
           <div className="small muted">次失败后要求</div>
         </div>
       </div>
+
+      {canClearIpRisk ? (
+        <div style={{ marginTop: 16 }}>
+          <ActiveDefensePanel initialEnabled={defenseOn} initialDefenses={activeDefenses} />
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 16 }}>
         {isSuperAdmin(me) ? (

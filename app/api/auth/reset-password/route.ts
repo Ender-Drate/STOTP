@@ -3,7 +3,7 @@ import { findUserById, getDb, audit } from "@/lib/db";
 import { hashPassword } from "@/lib/crypto";
 import { assertSameOrigin, clientIp, errorResponse, HttpError, rateLimit, readJson } from "@/lib/http";
 import { decryptPasswordField } from "@/lib/password-crypto";
-import { verifyCaptcha } from "@/lib/captcha";
+import { verifyCaptcha, CAPTCHA_COOKIE } from "@/lib/captcha";
 import { requireSecondFactor } from "@/lib/reauth";
 import { bumpAccountRisk } from "@/lib/account-risk";
 import { consumePasswordReset, peekPasswordReset } from "@/lib/password-reset";
@@ -16,7 +16,6 @@ interface Body {
   password_enc?: string;
   password_key?: string;
   code?: string;
-  captchaTicket?: string;
   captchaCode?: string;
 }
 
@@ -46,14 +45,14 @@ export async function POST(req: NextRequest) {
       if (user.totp_secret) {
         await requireSecondFactor(user, body.code || "", "password_reset");
       } else if (!E2E) {
-        const ticket = body.captchaTicket || "";
+        const token = req.cookies.get(CAPTCHA_COOKIE)?.value || "";
         const code = body.captchaCode || "";
-        if (!ticket || !code) {
+        if (!token || !code) {
           throw new HttpError(400, "captcha_required", "高风险请求需要图形验证码", {
             captcha_required: true,
           });
         }
-        if (!verifyCaptcha(ticket, code, ip, "reset-password")) {
+        if (!verifyCaptcha(token, code, ip, "reset-password")) {
           throw new HttpError(400, "captcha_invalid", "图形验证码不正确", {
             captcha_required: true,
           });
