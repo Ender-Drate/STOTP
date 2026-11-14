@@ -107,7 +107,7 @@ ok(cleared.res.status === 200 && cleared.body?.cleared === true,
 const afterClear = await json("/api/auth/login", {
   method: "POST",
   headers: { Origin: ORIGIN, "X-Real-IP": TEST_IP },
-  body: JSON.stringify({ username: "admin", password: "wrong-password" }),
+  body: JSON.stringify({ username: "defense_probe", password: "wrong-password" }),
 });
 ok(afterClear.res.status !== 403 && afterClear.body?.defense_action !== "block",
   "cleared IP is no longer blocked", String(afterClear.res.status));
