@@ -6,6 +6,7 @@ import {
 } from "@/lib/http";
 import { evaluateSignals, readTlsFingerprint, type ClientSignals } from "@/lib/risk-signals";
 import { riskLevel } from "@/lib/risk";
+import { applyAutoDefense } from "@/lib/active-defense";
 
 export const runtime = "nodejs";
 
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
     const userAgent = (req.headers.get("user-agent") || "").slice(0, 500);
     const tlsFingerprint = readTlsFingerprint(req.headers);
-    const evaluation = evaluateSignals(signals, userAgent, tlsFingerprint);
+    const evaluation = evaluateSignals(signals, userAgent, tlsFingerprint, req.headers);
     // 未登录时客户端信号不可信，最多到 medium，不能把任意 IP 刷成 critical。
     const score = user ? evaluation.score : Math.min(evaluation.score, 55);
     const rawPath = typeof body.path === "string" ? body.path.slice(0, 200) : "";
@@ -48,6 +49,8 @@ export async function POST(req: NextRequest) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(nowIso(), ip, user?.id ?? null, path, userAgent, tlsFingerprint,
       serialized, score, JSON.stringify(evaluation.reasons));
+
+    applyAutoDefense(ip, score, evaluation.reasons);
 
     return NextResponse.json({
       ok: true,

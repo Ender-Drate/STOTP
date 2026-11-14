@@ -26,6 +26,7 @@
     "e2e:password-reset": "node scripts/e2e-password-reset.mjs",
     "e2e:ip-risk-clear": "node scripts/e2e-ip-risk-clear.mjs",
     "e2e:profile-email": "node scripts/e2e-profile-email.mjs",
+    "e2e:defense": "node scripts/e2e-defense.mjs",
     "check:i18n": "node scripts/check-i18n.mjs"
   },
   "dependencies": {

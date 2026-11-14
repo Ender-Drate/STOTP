@@ -350,6 +350,18 @@ CREATE TABLE IF NOT EXISTS ip_rules (
   expires_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS ip_defenses (
+  ip TEXT PRIMARY KEY,
+  action TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  level TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  until INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  source TEXT NOT NULL DEFAULT 'auto'
+);
+CREATE INDEX IF NOT EXISTS idx_ip_defenses_until ON ip_defenses(until);
+
 CREATE TABLE IF NOT EXISTS ip_risk_clears (
   ip TEXT PRIMARY KEY,
   cleared_at TEXT NOT NULL,
@@ -386,6 +398,7 @@ export function cleanupExpired(db: DatabaseSync = getDb()): void {
     db.prepare(`DELETE FROM ${table} WHERE expires_at < ?`).run(now);
   }
   db.prepare("DELETE FROM totp_used WHERE used_at < ?").run(now - 300);
+  db.prepare("DELETE FROM ip_defenses WHERE until < ?").run(now);
   const retention = db.prepare(
     "SELECT value FROM risk_settings WHERE key = 'audit_retention_days'"
   ).get() as { value: string } | undefined;

@@ -20,7 +20,7 @@ import { decryptPasswordField } from "@/lib/password-crypto";
 import { publicUser } from "@/lib/users";
 import { getRoleByKey } from "@/lib/roles";
 import { email, username } from "@/lib/validators";
-import { verifyCaptcha } from "@/lib/captcha";
+import { verifyCaptcha, CAPTCHA_COOKIE } from "@/lib/captcha";
 import { issueEmailVerification } from "@/lib/email-verification";
 import { mailConfigured, sendVerificationEmail } from "@/lib/mailer";
 
@@ -34,7 +34,6 @@ interface Body {
   password_key?: string;
   displayName?: string;
   next?: string;
-  captchaTicket?: string;
   captchaCode?: string;
 }
 
@@ -71,14 +70,14 @@ export async function POST(req: NextRequest) {
       throw new HttpError(403, "ip_blocked", "当前 IP 已被限制");
     }
     if (!E2E) {
-      const captchaTicket = typeof body.captchaTicket === "string" ? body.captchaTicket : "";
+      const captchaToken = req.cookies.get(CAPTCHA_COOKIE)?.value || "";
       const captchaCode = typeof body.captchaCode === "string" ? body.captchaCode : "";
-      if (!captchaTicket || !captchaCode) {
+      if (!captchaToken || !captchaCode) {
         throw new HttpError(400, "captcha_required", "请输入图形验证码", {
           captcha_required: true,
         });
       }
-      if (!verifyCaptcha(captchaTicket, captchaCode, ip, "register")) {
+      if (!verifyCaptcha(captchaToken, captchaCode, ip, "register")) {
         throw new HttpError(400, "captcha_invalid", "图形验证码不正确", {
           captcha_required: true,
         });

@@ -18,7 +18,8 @@ import { publicUser } from "@/lib/users";
 import { createChallenge } from "@/lib/login-challenge";
 import { isIpBlocked } from "@/lib/ip-rules";
 import { decryptPasswordField } from "@/lib/password-crypto";
-import { verifyCaptcha } from "@/lib/captcha";
+import { verifyCaptcha, CAPTCHA_COOKIE } from "@/lib/captcha";
+import { activeDefenseEnabled, applyAutoDefense } from "@/lib/active-defense";
 import {
   accountFailureKey, captchaRequiredFor, clearLoginFailures, getRiskSettings,
   ipFailureAccounts, loginFailureKey, recordLoginFailure,
@@ -36,7 +37,6 @@ interface Body {
   password_key?: string;
   remember?: boolean | string;
   next?: string;
-  captchaTicket?: string;
   captchaCode?: string;
 }
 
@@ -87,14 +87,14 @@ export async function POST(req: NextRequest) {
     const failureKey = candidate ? loginFailureKey(ip, `user:${candidate.id}`) : identifierFailureKey;
     if (captchaRequiredFor(accountKey) || captchaRequiredFor(failureKey)
       || ipWideCaptcha) {
-      const captchaTicket = typeof body.captchaTicket === "string" ? body.captchaTicket : "";
+      const captchaToken = req.cookies.get(CAPTCHA_COOKIE)?.value || "";
       const captchaCode = typeof body.captchaCode === "string" ? body.captchaCode : "";
-      if (!captchaTicket || !captchaCode) {
+      if (!captchaToken || !captchaCode) {
         throw new HttpError(400, "captcha_required", "请输入图形验证码", {
           captcha_required: true,
         });
       }
-      if (!verifyCaptcha(captchaTicket, captchaCode, ip, "login")) {
+      if (!verifyCaptcha(captchaToken, captchaCode, ip, "login")) {
         throw new HttpError(400, "captcha_invalid", "图形验证码不正确", {
           captcha_required: true,
         });
@@ -110,8 +110,12 @@ export async function POST(req: NextRequest) {
       const accountCount = recordLoginFailure(accountKey);
       audit("login_failed", { ip, detail: identifier.slice(0, 40) });
       const settings = getRiskSettings();
+      const failures = Math.max(ipCount, accountCount);
+      if (activeDefenseEnabled() && failures >= settings.captchaAfterFailures * 2) {
+        applyAutoDefense(ip, 70, ["登录失败频繁"]);
+      }
       throw new HttpError(401, "invalid_credentials", "用户名或密码不正确", {
-        captcha_required: Math.max(ipCount, accountCount) >= settings.captchaAfterFailures,
+        captcha_required: failures >= settings.captchaAfterFailures,
       });
     }
     if (user.status !== "active") {

@@ -3,20 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ShapeCaptcha, type CaptchaPoint } from "./ShapeCaptcha";
+import { captchaUrl } from "@/lib/captcha-client";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
-  const [captcha, setCaptcha] = useState<{ ticket: string; image: string; prompt: string } | null>(null);
+  const [captcha, setCaptcha] = useState<{ image: string } | null>(null);
   const [captchaPoint, setCaptchaPoint] = useState<CaptchaPoint | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function refreshCaptcha() {
     try {
-      const res = await fetch("/api/auth/captcha?purpose=forgot-password", { cache: "no-store" });
+      const res = await fetch(captchaUrl("forgot-password"), { cache: "no-store" });
       const data = await res.json().catch(() => null);
-      if (data?.ticket && data?.image) {
-        setCaptcha({ ticket: data.ticket, image: data.image, prompt: data.prompt });
+      if (data?.image) {
+        setCaptcha({ image: data.image });
         setCaptchaPoint(null);
       }
     } catch {
@@ -40,7 +41,6 @@ export function ForgotPasswordForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          captchaTicket: captcha?.ticket || "",
           captchaCode: captchaPoint ? `${captchaPoint.x},${captchaPoint.y}` : "",
         }),
       });
@@ -77,7 +77,6 @@ export function ForgotPasswordForm() {
           </div>
           <ShapeCaptcha
             image={captcha.image}
-            prompt={captcha.prompt}
             point={captchaPoint}
             onPick={setCaptchaPoint}
           />

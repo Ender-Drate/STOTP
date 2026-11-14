@@ -8,14 +8,13 @@ export interface CaptchaPoint {
 }
 
 export function ShapeCaptcha({
-  image, prompt, point, onPick,
+  image, point, onPick,
 }: {
   image: string;
-  prompt: string;
   point: CaptchaPoint | null;
   onPick: (point: CaptchaPoint) => void;
 }) {
-  const [natural, setNatural] = useState({ width: 360, height: 240 });
+  const [natural, setNatural] = useState({ width: 420, height: 344 });
 
   function pick(event: React.MouseEvent<HTMLImageElement>) {
     const imageEl = event.currentTarget;
@@ -32,20 +31,19 @@ export function ShapeCaptcha({
 
   return (
     <div className="captcha-pick">
-      <div className="captcha-prompt">{prompt}</div>
       <div className="captcha-canvas">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={image}
-          alt={prompt}
+          alt="图形验证码"
           width={natural.width}
           height={natural.height}
           onClick={pick}
           onLoad={(event) => {
             const imageEl = event.currentTarget;
             setNatural({
-              width: imageEl.naturalWidth || 360,
-              height: imageEl.naturalHeight || 240,
+              width: imageEl.naturalWidth || 420,
+              height: imageEl.naturalHeight || 344,
             });
           }}
         />

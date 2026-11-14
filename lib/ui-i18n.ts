@@ -691,6 +691,30 @@ const EXACT: Record<string, string> = {
   "请求过于频繁，请稍后再试": "Too many requests. Try again later.",
   "图形验证码不正确": "Incorrect CAPTCHA",
   "验证码用途不合法": "Invalid CAPTCHA purpose",
+  "主动防护": "Active defense",
+  "开启后对高风险 IP 自动限流或临时封禁，最长 15 分钟。": "Automatically throttle or temporarily block high-risk IPs for at most 15 minutes.",
+  "开启主动防护": "Enable active defense",
+  "关闭主动防护": "Disable active defense",
+  "限流": "Throttle",
+  "等级": "Level",
+  "剩余": "Remaining",
+  "解除": "Clear",
+  "暂无主动防护记录": "No active defenses",
+  "主动防护开关参数不合法": "Invalid active defense flag",
+  "缺少 IP": "Missing IP",
+  "请求繁忙，请稍后再试": "The service is busy. Try again shortly.",
+  "当前 IP 已被临时限制": "This IP is temporarily restricted",
+  "检测到 CDP/自动化残留": "CDP/automation artifacts detected",
+  "屏幕可用尺寸缺失": "Screen available size missing",
+  "PDF 查看器状态异常": "Unexpected PDF viewer state",
+  "移动 UA 但无触摸点": "Mobile UA without touch support",
+  "客户端声明移动端但无触摸点": "Client claims mobile but has no touch support",
+  "客户端平台声明不一致": "Client platform claims do not match",
+  "语言与请求头不一致": "Language does not match request headers",
+  "缺少 Sec-Fetch-Site": "Missing Sec-Fetch-Site",
+  "Sec-Fetch-Site 异常": "Unexpected Sec-Fetch-Site",
+  "客户端平台与 Client Hints 不一致": "Platform does not match Client Hints",
+  "登录失败频繁": "Repeated sign-in failures",
   "邮件服务未配置，请联系管理员": "Email service is not configured. Contact an admin.",
   "当前 IP 已被限制": "This IP is currently restricted",
   "绑定会话已过期": "Linking session expired",
@@ -844,7 +868,24 @@ const RULES: Array<[RegExp, string]> = [
  * (server messages such as `${label} 不是合法 URL`). A plain string
  * replacement would leave the captured Chinese label in place.
  */
+const CAPTCHA_COLOR_EN: Record<string, string> = {
+  "白色": "white", "黄色": "yellow", "红色": "red", "蓝色": "blue",
+  "绿色": "green", "紫色": "purple", "橙色": "orange", "青色": "teal",
+};
+const CAPTCHA_SHAPE_EN: Record<string, string> = {
+  "立方体": "cube", "圆柱": "cylinder", "球体": "sphere",
+};
+const CAPTCHA_SIZE_EN: Record<string, string> = {
+  "小型": "small", "大型": "large",
+};
+
 const DYNAMIC_RULES: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
+  [
+    /^点击画面中位于(.+?)(立方体|圆柱|球体)后面的(小型|大型)(.+?)(立方体|圆柱|球体)$/,
+    (m) => `Click the ${CAPTCHA_SIZE_EN[m[3]] || m[3]} `
+      + `${CAPTCHA_COLOR_EN[m[4]] || m[4]} ${CAPTCHA_SHAPE_EN[m[5]] || m[5]} `
+      + `behind the ${CAPTCHA_COLOR_EN[m[1]] || m[1]} ${CAPTCHA_SHAPE_EN[m[2]] || m[2]}`,
+  ],
   [/^(.+) 不是合法 URL$/, (m) => `${translateText(m[1])} is not a valid URL`],
   [/^(.+) 只支持 http\/https$/, (m) => `${translateText(m[1])} only supports http/https`],
   [/^(.+) 生产环境必须使用 https$/, (m) => `${translateText(m[1])} must use https in production`],

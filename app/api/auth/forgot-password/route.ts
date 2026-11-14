@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { audit, findUserByUsername } from "@/lib/db";
 import { assertSameOrigin, clientIp, errorResponse, HttpError, rateLimit, readJson } from "@/lib/http";
 import { sha256 } from "@/lib/crypto";
-import { verifyCaptcha } from "@/lib/captcha";
+import { verifyCaptcha, CAPTCHA_COOKIE } from "@/lib/captcha";
 import { email } from "@/lib/validators";
 import { accountRisk } from "@/lib/account-risk";
 import { issuePasswordReset } from "@/lib/password-reset";
@@ -13,7 +13,6 @@ export const runtime = "nodejs";
 
 interface Body {
   email?: string;
-  captchaTicket?: string;
   captchaCode?: string;
 }
 
@@ -33,14 +32,14 @@ export async function POST(req: NextRequest) {
       throw new HttpError(429, "rate_limited", "请求过于频繁，请稍后再试");
     }
     if (!E2E) {
-      const ticket = body.captchaTicket || "";
+      const token = req.cookies.get(CAPTCHA_COOKIE)?.value || "";
       const code = body.captchaCode || "";
-      if (!ticket || !code) {
+      if (!token || !code) {
         throw new HttpError(400, "captcha_required", "请输入图形验证码", {
           captcha_required: true,
         });
       }
-      if (!verifyCaptcha(ticket, code, ip, "forgot-password")) {
+      if (!verifyCaptcha(token, code, ip, "forgot-password")) {
         throw new HttpError(400, "captcha_invalid", "图形验证码不正确", {
           captcha_required: true,
         });

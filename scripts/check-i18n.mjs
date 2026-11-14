@@ -118,6 +118,8 @@ const RUNTIME_SAMPLES = [
   "点击图中的五角星",
   "点击图中的菱形",
   "请先点击图中的图形",
+  "点击画面中位于黄色立方体后面的小型白色圆柱",
+  "点击画面中位于蓝色圆柱后面的大型红色球体",
 ];
 const runtimeIssues = RUNTIME_SAMPLES.filter((sample) => CJK.test(translateText(sample)));
 if (runtimeIssues.length) {
