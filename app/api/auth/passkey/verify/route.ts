@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         counter: passkey.counter,
         transports: passkey.transports ? JSON.parse(passkey.transports) : undefined,
       },
-      requireUserVerification: true,
+      requireUserVerification: false,
     });
     if (!verification.verified) {
       throw new HttpError(401, "passkey_invalid", "Passkey 验证失败");

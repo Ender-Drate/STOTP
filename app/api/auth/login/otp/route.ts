@@ -14,7 +14,7 @@ import {
 } from "@/lib/http";
 import { failChallenge, getChallenge, markChallengeUsed } from "@/lib/login-challenge";
 import { createSession, sessionCookieOptions } from "@/lib/session";
-import { verifyTotpForUser } from "@/lib/totp";
+import { verifyTotpForUserResult } from "@/lib/totp";
 import { decryptTotpSecret } from "@/lib/totp-secret";
 import { isIpBlocked } from "@/lib/ip-rules";
 import { publicUser } from "@/lib/users";
@@ -87,7 +87,14 @@ export async function POST(req: NextRequest) {
     if (!user.totp_secret) {
       throw new HttpError(401, "otp_expired", "TOTP 未启用，请重新登录");
     }
-    if (!verifyTotpForUser(user.id, decryptTotpSecret(user.totp_secret), code)) {
+    const totp = verifyTotpForUserResult(user.id, decryptTotpSecret(user.totp_secret), code);
+    if (!totp.ok) {
+      if (totp.reused) {
+        audit("totp_login_deny", {
+          userId: user.id, ip: clientIp(req), detail: "code_reused",
+        });
+        throw new HttpError(401, "otp_reused", "该验证码已使用，请等待下一组验证码");
+      }
       const attempts = failChallenge(ticket);
       audit("totp_login_deny", {
         userId: user.id, ip: clientIp(req),
@@ -95,7 +102,7 @@ export async function POST(req: NextRequest) {
       });
       throw new HttpError(401, "otp_invalid", attempts >= 5
         ? "验证码错误次数过多，请重新登录"
-        : "验证码不正确");
+        : "验证码不正确，请确认手机时间");
     }
     return complete("totp_login_allow");
   } catch (error) {

@@ -122,7 +122,10 @@ const replayCode = await json("/api/auth/login/otp", {
   method: "POST",
   body: JSON.stringify({ ticket: replayLogin.body?.ticket, code: totp(secret, 1), next: "/dashboard" }),
 });
-ok(replayCode.res.status === 401, "same TOTP timestep cannot be replayed");
+ok(replayCode.res.status === 401 && replayCode.body?.error?.code === "otp_reused",
+  "same TOTP timestep is reported as reused");
+ok(String(replayCode.body?.error?.message || "").includes("已使用"),
+  "reused TOTP has a clear message", replayCode.body?.error?.message);
 const replay = await json("/api/auth/login/otp", {
   method: "POST",
   body: JSON.stringify({ ticket, code: totp(secret), next: "/dashboard" }),

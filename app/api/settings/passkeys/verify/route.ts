@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       expectedChallenge: challenge.challenge,
       expectedOrigin: RP_ORIGIN,
       expectedRPID: RP_ID,
-      requireUserVerification: true,
+      requireUserVerification: false,
     });
     if (!verification.verified || !verification.registrationInfo) {
       throw new HttpError(400, "passkey_invalid", "Passkey 验证失败");
