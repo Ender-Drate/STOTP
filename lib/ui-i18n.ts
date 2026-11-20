@@ -770,6 +770,7 @@ const EXACT: Record<string, string> = {
   "TOTP 已启用": "TOTP is already enabled",
   "TOTP 初始化已过期，请重新生成二维码": "TOTP setup expired. Generate a new QR code.",
   "验证码不正确，请确认手机时间": "Incorrect code. Check your device time.",
+  "该验证码已使用，请等待下一组验证码": "This code has already been used. Wait for the next one.",
   "TOTP 已启用，请先关闭": "TOTP is already enabled. Disable it first.",
   "没有该操作的权限": "No permission for this action",
   "只有最高管理员可以管理权限等级": "Only the super admin can manage roles",

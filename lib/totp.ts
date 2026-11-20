@@ -72,18 +72,23 @@ export function verifyTotp(secret: string, code: string, window = 1): boolean {
   return false;
 }
 
+export interface TotpVerifyResult {
+  ok: boolean;
+  reused: boolean;
+}
+
 /**
  * 登录/再认证使用：除时间窗外，同一用户同一 timestep 只能成功一次。
- * 返回 true 后该 timestep 已被记录，重放同一六位码会失败。
+ * 返回 reused=true 表示验证码本身正确，但当前时间步已经被使用过。
  */
-export function verifyTotpForUser(
+export function verifyTotpForUserResult(
   userId: number,
   secret: string,
   code: string,
   window = 1,
-): boolean {
+): TotpVerifyResult {
   const normalized = code.replace(/\s/g, "");
-  if (!/^\d{6}$/.test(normalized) || !secret) return false;
+  if (!/^\d{6}$/.test(normalized) || !secret) return { ok: false, reused: false };
   const now = Date.now();
   for (let offset = -window; offset <= window; offset += 1) {
     const at = now + offset * 30 * 1000;
@@ -93,9 +98,18 @@ export function verifyTotpForUser(
       `INSERT OR IGNORE INTO totp_used(user_id, timestep, used_at)
        VALUES (?, ?, ?)`
     ).run(userId, timestep, nowSec());
-    return Number(inserted.changes) === 1;
+    return { ok: Number(inserted.changes) === 1, reused: Number(inserted.changes) !== 1 };
   }
-  return false;
+  return { ok: false, reused: false };
+}
+
+export function verifyTotpForUser(
+  userId: number,
+  secret: string,
+  code: string,
+  window = 1,
+): boolean {
+  return verifyTotpForUserResult(userId, secret, code, window).ok;
 }
 
 export function otpauthUri(secret: string, username: string, issuer = "STOTP"): string {
