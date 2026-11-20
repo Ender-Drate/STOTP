@@ -73,10 +73,9 @@ export function applyAutoDefense(
   if (!activeDefenseEnabled() || !ip) return null;
   const settings = getRiskSettings();
   const level = riskLevel(score, settings) as DefenseLevel;
-  if (level === "low" && !reasons.some((reason) =>
-    /自动化|headless|webdriver|CDP|语言|平台|触摸|PDF|Client Hints|Sec-Fetch/i.test(reason))) {
-    return null;
-  }
+  // 低分（单个平台/插件/请求头小差异）不触发临时防护，避免误伤手机浏览器；
+  // 中风险及以上，或明确的 webdriver/CDP 自动化证据才处置。
+  if (level === "low") return null;
 
   const automation = reasons.some((reason) =>
     /自动化|headless|webdriver|puppeteer|playwright|selenium|CDP|User-Agent\/WebGL|语言|平台|触摸|PDF|Client Hints|Sec-Fetch/i.test(reason));

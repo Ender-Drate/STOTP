@@ -53,6 +53,8 @@ export function evaluateSignals(
   };
 
   const ua = `${userAgent} ${signals.webglRenderer || ""}`.toLowerCase();
+  const mobileUa = /iphone|ipad|android|mobile/i.test(userAgent);
+  const chromeDesktop = /chrome/i.test(userAgent) && !/edg|opr/i.test(userAgent) && !mobileUa;
   if (signals.webdriver === true) add(45, "navigator.webdriver=true");
   if (signals.cdp === true) add(45, "检测到 CDP/自动化残留");
   if (/(headlesschrome|phantomjs|puppeteer|playwright|selenium|electron)/i.test(ua)) {
@@ -62,7 +64,8 @@ export function evaluateSignals(
   if ((signals.webglRenderer || "").toLowerCase().match(/swiftshader|llvmpipe|mesa offscreen/)) {
     add(25, "软件渲染 WebGL");
   }
-  if (signals.plugins === 0) add(8, "浏览器插件列表为空");
+  // 移动浏览器普遍没有插件、PDF 查看器标志也可能不同，这些只对桌面 Chrome 计分。
+  if (signals.plugins === 0 && !mobileUa) add(8, "浏览器插件列表为空");
   if (!signals.languages?.length) add(8, "未提供浏览器语言");
   if (!signals.timezone) add(6, "未提供时区");
   if (!signals.hardwareConcurrency || signals.hardwareConcurrency <= 1) {
@@ -73,23 +76,25 @@ export function evaluateSignals(
     add(6, "屏幕可用尺寸缺失");
   }
   if (signals.outerWidth === 0 || signals.outerHeight === 0) add(12, "窗口外尺寸为 0");
-  if (signals.chrome === false && /chrome/i.test(userAgent) && !/edg|opr/i.test(userAgent)) {
+  if (signals.chrome === false && chromeDesktop) {
     add(6, "Chrome UA 但 window.chrome 缺失");
   }
-  if (signals.pdfViewerEnabled === false && /chrome/i.test(userAgent)
-    && !/edg|opr/i.test(userAgent)) {
+  if (signals.pdfViewerEnabled === false && chromeDesktop) {
     add(8, "PDF 查看器状态异常");
   }
 
-  const mobileUa = /iphone|ipad|android|mobile/i.test(userAgent);
   if (mobileUa && signals.maxTouchPoints === 0) add(20, "移动 UA 但无触摸点");
 
   if (signals.userAgentData?.mobile === true && signals.maxTouchPoints === 0) {
     add(16, "客户端声明移动端但无触摸点");
   }
 
+  const androidUa = /android/i.test(userAgent);
   const platformFromUaData = platformFamily(signals.userAgentData?.platform || "");
-  const platformFromNavigator = platformFamily(signals.platform || "");
+  let platformFromNavigator = platformFamily(signals.platform || "");
+  // Android Chrome 的 navigator.platform 常是 "Linux armv8l"，而
+  // userAgentData/Client Hints 报 "Android"；归一化，避免误判为伪装。
+  if (androidUa && platformFromNavigator === "linux") platformFromNavigator = "android";
   if (platformFromUaData && platformFromNavigator
     && platformFromUaData !== platformFromNavigator) {
     add(16, "客户端平台声明不一致");

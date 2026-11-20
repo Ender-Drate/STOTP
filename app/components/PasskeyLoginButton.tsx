@@ -2,16 +2,29 @@
 
 import { useState } from "react";
 import { startAuthentication } from "@simplewebauthn/browser";
+import { passkeyErrorText, passkeySupportError } from "@/lib/passkey-client";
 
 export function PasskeyLoginButton({ next }: { next: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   async function login() {
+    const unsupported = passkeySupportError();
+    if (unsupported) {
+      setError(unsupported);
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      const optionsRes = await fetch("/api/auth/passkey/options", { method: "POST" });
+      // 硬件安全密钥通常不是 discoverable credential，需要用户名来限定
+      // allowCredentials；平台 Passkey 可以留空走 discoverable 流程。
+      const username = (document.querySelector<HTMLInputElement>("#identifier")?.value || "").trim();
+      const optionsRes = await fetch("/api/auth/passkey/options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      });
       const options = await optionsRes.json().catch(() => null);
       if (!optionsRes.ok) {
         setError(options?.error?.message || "无法发起 Passkey 登录");
@@ -30,8 +43,7 @@ export function PasskeyLoginButton({ next }: { next: string }) {
       }
       window.location.assign(data?.next || next || "/dashboard");
     } catch (err) {
-      setError(err instanceof Error && err.name === "NotAllowedError"
-        ? "已取消或超时" : "浏览器不支持或操作失败");
+      setError(passkeyErrorText(err));
     } finally {
       setBusy(false);
     }
@@ -44,6 +56,9 @@ export function PasskeyLoginButton({ next }: { next: string }) {
         onClick={login} disabled={busy}>
         {busy ? "等待设备…" : "使用 Passkey 登录"}
       </button>
+      <p className="small muted" style={{ margin: "6px 0 0", textAlign: "center" }}>
+        硬件安全密钥请先填写上方用户名或邮箱；平台 Passkey 可留空。
+      </p>
     </div>
   );
 }

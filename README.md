@@ -211,6 +211,11 @@ SMTP 可在后台「邮件服务」配置（仅最高管理员），密码加密
 设置页「Passkey」添加设备，登录页点「使用 Passkey 登录」即可无密码进入。
 
 - `RP ID` / `Origin` 从 `AUTH_PUBLIC_URL` 自动推导；必须是 **HTTPS 域名**（`localhost` 除外）。
+- **硬件安全密钥**（YubiKey 等）通常不是 discoverable credential，登录前请先在用户名/邮箱框
+  填写账号，服务端会把这些凭据放进 `allowCredentials`；平台 Passkey（Touch ID / Windows Hello）
+  可以留空走 discoverable 流程。
+- 服务端不强制 User Verification，兼容没有设置 PIN 的安全密钥；注册使用
+  `residentKey: "preferred"`，非 resident 凭据也能通过用户名登录。
 - 换域名会导致已注册 Passkey 失效。
 - 添加/删除 Passkey 都在设置页，删除需要已登录会话。
 

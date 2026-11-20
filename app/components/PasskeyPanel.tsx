@@ -5,6 +5,7 @@ import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { PasswordInput } from "./PasswordInput";
 import { encryptPassword } from "@/lib/password-client";
+import { passkeyErrorText, passkeySupportError } from "@/lib/passkey-client";
 import { uiText } from "@/lib/ui-i18n";
 
 interface PasskeyItem {
@@ -32,6 +33,11 @@ export function PasskeyPanel({ passkeys, totpEnabled = false }: {
   async function add() {
     if (!password) {
       setMsg({ ok: false, text: "请先输入当前密码" });
+      return;
+    }
+    const unsupported = passkeySupportError();
+    if (unsupported) {
+      setMsg({ ok: false, text: unsupported });
       return;
     }
     setBusy(true);
@@ -70,11 +76,7 @@ export function PasskeyPanel({ passkeys, totpEnabled = false }: {
       setMsg({ ok: true, text: "Passkey 已添加" });
       router.refresh();
     } catch (error) {
-      setMsg({
-        ok: false,
-        text: error instanceof Error && error.name === "NotAllowedError"
-          ? "已取消或超时" : "浏览器不支持或操作失败",
-      });
+      setMsg({ ok: false, text: passkeyErrorText(error) });
     } finally {
       setBusy(false);
     }

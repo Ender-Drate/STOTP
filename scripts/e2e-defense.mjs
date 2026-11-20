@@ -149,6 +149,51 @@ await json(`/api/admin/risk/defense?ip=${encodeURIComponent(throttleIp)}`, {
   method: "DELETE", headers: { Cookie: adminCookie, Origin: ORIGIN },
 });
 
+const androidIp = "203.0.113.52";
+const android = await json("/api/risk/observe", {
+  method: "POST",
+  headers: {
+    Cookie: adminCookie,
+    Origin: ORIGIN,
+    "X-Real-IP": androidIp,
+    "User-Agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+      + "(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+    "Accept-Language": "zh-CN,zh;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-CH-UA-Platform": '"Android"',
+  },
+  body: JSON.stringify({
+    path: "/login",
+    signals: {
+      webdriver: false,
+      cdp: false,
+      headless: false,
+      platform: "Linux armv8l",
+      languages: ["zh-CN", "zh"],
+      timezone: "Asia/Shanghai",
+      screen: { width: 412, height: 915, colorDepth: 24 },
+      screenAvail: { width: 412, height: 915 },
+      hardwareConcurrency: 8,
+      deviceMemory: 4,
+      plugins: 0,
+      mimeTypes: 0,
+      pdfViewerEnabled: false,
+      maxTouchPoints: 5,
+      outerWidth: 412,
+      outerHeight: 915,
+      chrome: true,
+      userAgentData: { mobile: true, platform: "Android" },
+    },
+  }),
+});
+ok(android.res.status === 200 && android.body?.score < 30,
+  "normal Android browser stays low risk", String(android.body?.score));
+const androidList = await json("/api/admin/risk/defense", {
+  headers: { Cookie: adminCookie },
+});
+ok(!androidList.body?.defenses?.some((item) => item.ip === androidIp),
+  "normal Android browser is not throttled");
+
 const disabled = await json("/api/admin/risk/defense", {
   method: "PATCH",
   headers: { Cookie: adminCookie, Origin: ORIGIN },
