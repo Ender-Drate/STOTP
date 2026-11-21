@@ -3,8 +3,8 @@
   <id>STOTPOAuth</id>
   <name>OAuth2 通用登录</name>
   <url>https://auth.yxzhou.com/</url>
-  <note>可配置多个 OAuth2 / OIDC Provider 的 Z-BlogPHP 登录插件</note>
-  <description>登录页注入多个 OAuth2 登录按钮，支持授权码 + PKCE、任意 Provider、字段映射、自动注册和已验证邮箱绑定。</description>
+  <note>可配置多个 OAuth2 / OIDC Provider 的 Z-BlogPHP 登录插件，支持 Passkey 与强制本地绑定</note>
+  <description>登录页注入多个 OAuth2 登录按钮，支持授权码 + PKCE、任意 Provider、字段映射、STOTP Passkey、强制绑定本地账号和显式绑定页。不会按邮箱自动匹配用户。</description>
   <path>main.php</path>
   <include>include.php</include>
   <level>1</level>
@@ -19,9 +19,9 @@
     <url></url>
   </source>
   <adapted>170000</adapted>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
   <pubdate>2026-11-07</pubdate>
-  <modified>2026-11-07</modified>
+  <modified>2026-11-21</modified>
   <price>0</price>
   <phpver>7.4</phpver>
   <advanced>

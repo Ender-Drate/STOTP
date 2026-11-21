@@ -15,7 +15,7 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{
     next?: string | string[]; error?: string | string[]; verified?: string | string[];
-    reset?: string | string[]; emailChanged?: string | string[];
+    reset?: string | string[]; emailChanged?: string | string[]; method?: string | string[];
   }>;
 }) {
   const params = await searchParams;
@@ -24,6 +24,7 @@ export default async function LoginPage({
   const verified = params.verified === "1";
   const reset = params.reset === "1";
   const emailChanged = params.emailChanged === "1";
+  const passkeyOnly = params.method === "passkey";
   const user = await currentUser();
   if (user) redirect(next);
   const providers = listProviders(true);
@@ -39,10 +40,13 @@ export default async function LoginPage({
           </div>
         </div>
         <h1 className="auth-title">登录账户</h1>
+        {passkeyOnly ? (
+          <div className="notice"><span>正在使用 Passkey 登录，请在设备上确认。</span></div>
+        ) : null}
         {emailChanged ? <div className="notice notice-ok">邮箱已修改，请重新登录并验证新邮箱。</div> : null}
         {reset ? <div className="notice notice-ok">密码已重置，请使用新密码登录。</div> : null}
         <LoginForm next={next} initialError={error} verified={verified} />
-        <PasskeyLoginButton next={next} />
+        <PasskeyLoginButton next={next} autoStart={passkeyOnly} />
         {providers.length ? (
           <div className="login-providers">
             <div className="login-divider"><span>或使用其他方式</span></div>

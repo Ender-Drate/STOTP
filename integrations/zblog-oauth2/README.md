@@ -1,7 +1,7 @@
-# Z-BlogPHP 通用 OAuth2 登录插件
+# Z-BlogPHP 通用 OAuth2 / Passkey 登录插件
 
-一个插件内可配置**多个 OAuth2 / OIDC Provider**，每个 Provider 在 Z-Blog 登录页显示自己的按钮。
-不绑定 STOTP，也不要求 auth-center；任何标准 OAuth2 用户信息接口都可以接。
+一个插件内可配置多个 OAuth2 / OIDC Provider；支持通过 STOTP Passkey 发起登录。
+插件不会按邮箱查找本地账号：第三方身份必须显式绑定到 Z-Blog 本地账号。
 
 ## 安装
 
@@ -19,7 +19,7 @@
 
 必填：
 
-- 名称、Slug（如 `github`、`google`、`auth-center`）
+- 名称、Slug（如 `stotp`、`github`、`google`）
 - Authorization URL
 - Token URL
 - UserInfo URL
@@ -33,8 +33,7 @@
 - UserInfo GET/POST
 - PKCE（S256）
 - 额外授权参数，例如 `prompt=consent&access_type=offline`
-- 字段映射：Subject / Email / Name / Email Verified，支持 `data.id` 这种点路径
-- 信任邮箱：Provider 不返回 `email_verified` 时，管理员可显式信任
+- 字段映射：Subject / Email / Name
 - 排序、启用
 
 回调地址对所有 Provider 相同：
@@ -45,92 +44,46 @@ https://你的博客域名/zb_users/plugin/STOTPOAuth/oauth2.php
 
 把该地址填到每个 OAuth2 服务的回调白名单。
 
-## Provider 示例
+## Passkey 登录
 
-### auth-center / STOTP
+Passkey 依赖 STOTP 登录页，不是 Z-Blog 本地 WebAuthn。
 
-```text
-Authorization: https://auth.yxzhou.com/api/oauth/authorize
-Token:         https://auth.yxzhou.com/api/oauth/token
-UserInfo:      https://auth.yxzhou.com/api/oauth/userinfo
-Scope:         openid profile email
-Subject:       sub
-Email Verified: email_verified
-Token 认证:    client_secret_post
-PKCE:          开
-```
+1. 添加 STOTP Provider，例如 Slug `stotp`。
+2. 全局设置里勾选「Passkey 登录」，选择该 Provider。
+3. Passkey 登录入口留空时自动使用 Provider 域名 + `/login`；也可以显式填写，例如：
+   `https://auth.example.com/login`
+4. 登录页会出现「使用 Passkey 登录」按钮。
 
-### GitHub
+流程：
 
 ```text
-Authorization: https://github.com/login/oauth/authorize
-Token:         https://github.com/login/oauth/access_token
-UserInfo:      https://api.github.com/user
-Scope:         read:user user:email
-Subject:       id
-Email:         email
-Name:          name
-Token 认证:    client_secret_post
-PKCE:          可开（GitHub 会忽略）
+Z-Blog Passkey 按钮
+  → oauth2.php?action=start&passkey=1&provider=stotp
+  → STOTP /login?method=passkey&next=/api/oauth/authorize?...
+  → STOTP 自动发起 WebAuthn
+  → OAuth 回调
+  → 已绑定则登录；未绑定进入绑定页
 ```
 
-GitHub 的 `/user` 可能不返回邮箱，需要 `user:email` scope，或另建一个返回邮箱的 UserInfo 服务。
-如果邮箱为空，插件不会自动建号。
+硬件安全密钥如果不是 discoverable credential，可能需要在 STOTP 登录页填写用户名后再点一次 Passkey。
 
-### Google / 标准 OIDC
-
-```text
-Authorization: https://accounts.google.com/o/oauth2/v2/auth
-Token:         https://oauth2.googleapis.com/token
-UserInfo:      https://openidconnect.googleapis.com/v1/userinfo
-Scope:         openid profile email
-Subject:       sub
-Email Verified: email_verified
-```
-
-### 自建 OAuth2
-
-只要满足：
-
-1. 支持授权码模式；
-2. `POST` Token 端点返回 JSON 或 form-urlencoded，包含 `access_token`；
-3. 带 `Authorization: Bearer <token>` 的 UserInfo 返回 JSON；
-4. JSON 中有可映射的 Subject 和 Email。
-
-## 登录流程
-
-```text
-登录页 → oauth2.php?action=start&provider=SLUG
-       → Authorization URL（state + 可选 PKCE）
-       → oauth2.php 回调
-       → Token（post/basic）
-       → UserInfo
-       → 按 Provider + Subject 查绑定
-       → 绑定/自动注册 Z-Blog 用户
-       → SetLoginCookie()
-```
-
-- `state` 10 分钟一次性，绑定 PHP session。
-- PKCE verifier 只存在 session。
-- 不同 Provider 的 Subject 独立绑定，不会串号。
-- 登录按钮通过 `Filter_Plugin_Login_Header` 注入，不改主题模板。
-
-## 账号绑定
+## 本地账号绑定（强制）
 
 绑定表：`%pre%oauth2_links`，记录 Provider、MemberID、Subject、Email。
 
-1. 已存在 `(Provider, Subject)`：直接登录。
-2. 不存在：
-   - `email_verified=true`（或管理员信任邮箱）、邮箱已存在、开启自动绑定 → 绑定已有账号；
-   - 否则开启自动注册 → 创建新账号；
-   - 邮箱已存在但关闭自动绑定 → 拒绝，避免接管账号。
-3. 自动注册默认等级 5，可在全局设置改，范围 2-6，不会创建管理员。
+1. 已存在 `(Provider, Subject)`：直接登录，不检查邮箱。
+2. 不存在：跳转绑定页，必须输入本地 Z-Blog **用户名 + 密码**。
+3. 绑定成功后写入 link，后续同一 subject 直接登录。
+4. 不会自动注册，也不会按邮箱自动绑定已有账号。
+5. 一个 subject 已绑定其他本地账号时拒绝改绑。
+
+邮箱只作为绑定记录/展示信息，不参与身份判断。
 
 ## 全局设置
 
-- 自动注册
-- 已验证邮箱自动绑定（默认关闭）
-- 默认用户等级
+- Passkey 登录开关
+- Passkey Provider
+- Passkey 登录入口（可选）
 - 登录后跳转（留空为 Z-Blog 后台）
 
 ## 安全
@@ -140,7 +93,8 @@ Email Verified: email_verified
 - Token 只在服务端交换，不下发浏览器。
 - 错误信息 HTML 转义，不输出 token/secret。
 - Client Secret 存在 Z-Blog 插件配置文件（通常在 `zb_users/data/plugin/`），请限制文件权限。
-- 自动绑定默认关闭；开启后只接受严格 `email_verified === true`（或管理员显式勾选「信任邮箱」的 Provider），避免邮箱关联接管。
+- 绑定必须验证本地用户名和密码；绑定 token 10 分钟一次性有效。
+- 不使用 email 匹配/接管本地账号。
 - 公共客户端可以留空 Secret，但必须开启 PKCE。
 
 ## 常见问题
@@ -168,8 +122,8 @@ Email Verified: email_verified
 - UserInfo 需要 POST，或需要特殊 scope；
 - 字段映射写错，比如 GitHub 的 Subject 是 `id` 而不是 `sub`。
 
-**无法自动注册**
+**首次登录要求绑定**
 
-- 邮箱为空；
-- 邮箱未验证且没有勾选「信任邮箱」；
-- 默认等级或用户名/邮箱格式不符合 Z-Blog 设置。
+- 这是预期行为；请使用已有 Z-Blog 账号登录绑定页。
+- 没有本地账号时先注册/登录 Z-Blog，再重新发起第三方登录。
+- 邮箱相同也不会自动绑定，必须验证本地密码。
