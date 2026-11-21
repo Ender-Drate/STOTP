@@ -24,6 +24,16 @@ function STOTPOAuth_LoginHeader()
             'name' => $provider->Name,
             'icon' => $provider->Icon,
             'url' => rtrim($zbp->host, '/') . '/zb_users/plugin/STOTPOAuth/oauth2.php?action=start&provider=' . rawurlencode($provider->Slug),
+            'passkey' => false,
+        );
+    }
+    $passkeyProvider = stotp_oauth_passkey_provider();
+    if ($passkeyProvider) {
+        $items[] = array(
+            'name' => '使用 Passkey 登录',
+            'icon' => '',
+            'url' => rtrim($zbp->host, '/') . '/zb_users/plugin/STOTPOAuth/oauth2.php?action=start&passkey=1&provider=' . rawurlencode($passkeyProvider->Slug),
+            'passkey' => true,
         );
     }
     $json = json_encode($items, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
@@ -33,6 +43,7 @@ function STOTPOAuth_LoginHeader()
 .stotp-oauth-buttons{display:flex;flex-direction:column;gap:8px}
 .stotp-oauth-button{display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;width:100%;padding:9px 12px;border:1px solid #d2d2d7;border-radius:6px;color:#1d1d1f;text-decoration:none;font-size:14px;background:#fff}
 .stotp-oauth-button:hover{border-color:#0071e3;color:#0071e3;text-decoration:none}
+.stotp-oauth-button.passkey{border-color:#0a7be8;background:#f2f8ff;color:#0a62c4;font-weight:600}
 .stotp-oauth-icon{width:20px;height:20px;border-radius:5px;object-fit:cover;display:grid;place-items:center;background:#0071e3;color:#fff;font-size:11px;font-weight:700;flex:none}
 </style>
 <script>
@@ -47,7 +58,7 @@ function STOTPOAuth_LoginHeader()
     list.className='stotp-oauth-buttons';
     providers.forEach(function(provider){
       var link=document.createElement('a');
-      link.className='stotp-oauth-button';
+      link.className='stotp-oauth-button'+(provider.passkey?' passkey':'');
       link.href=provider.url;
       if(provider.icon){
         var img=document.createElement('img');
@@ -55,6 +66,11 @@ function STOTPOAuth_LoginHeader()
         img.src=provider.icon;
         img.alt='';
         link.appendChild(img);
+      }else if(provider.passkey){
+        var key=document.createElement('span');
+        key.className='stotp-oauth-icon';
+        key.textContent='&#9679;';
+        link.appendChild(key);
       }else{
         var mark=document.createElement('span');
         mark.className='stotp-oauth-icon';
@@ -79,18 +95,10 @@ function InstallPlugin_STOTPOAuth()
 {
     global $zbp;
     $config = $zbp->Config('STOTPOAuth');
-    if (!isset($config->auto_register)) {
-        $config->auto_register = 1;
-        $config->allow_email_link = 0;
-        $config->default_level = 5;
-        $config->login_redirect = '';
-        $config->button_text = '使用 STOTP 登录';
-        $config->authorization_url = 'https://auth.yxzhou.com/api/oauth/authorize';
-        $config->token_url = 'https://auth.yxzhou.com/api/oauth/token';
-        $config->userinfo_url = 'https://auth.yxzhou.com/api/oauth/userinfo';
-        $config->scope = 'openid profile email';
-        $config->client_id = '';
-        $config->client_secret = '';
+    if (!isset($config->passkey_enabled)) {
+        $config->passkey_enabled = 0;
+        $config->passkey_provider = '';
+        $config->passkey_login_url = '';
         $zbp->SaveConfig('STOTPOAuth');
     }
     stotp_oauth_create_table();

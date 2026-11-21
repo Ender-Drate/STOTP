@@ -78,6 +78,10 @@ const EXACT: Record<string, string> = {
   "统计信息": "Statistics",
   "风险控制": "Risk control",
 
+  "使用 Passkey 继续": "Continue with Passkey",
+  "正在使用 Passkey 登录，请在设备上确认。": "Signing in with Passkey. Confirm on your device.",
+
+
   "删除应用": "Delete app",
   "创建应用": "Create app",
   "修改应用": "Update app",

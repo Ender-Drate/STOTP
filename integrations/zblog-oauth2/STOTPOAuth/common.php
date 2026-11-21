@@ -330,3 +330,90 @@ function stotp_oauth_fail($message, $status = 400)
     echo '</body></html>';
     exit;
 }
+
+function stotp_oauth_origin($url)
+{
+    $parts = parse_url((string) $url);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+        return '';
+    }
+    $origin = $parts['scheme'] . '://' . $parts['host'];
+    if (!empty($parts['port'])) {
+        $origin .= ':' . (int) $parts['port'];
+    }
+
+    return $origin;
+}
+
+function stotp_oauth_passkey_provider()
+{
+    $slug = trim((string) stotp_oauth_config('passkey_provider', ''));
+    if ($slug === '' || !(int) stotp_oauth_config('passkey_enabled', 0)) {
+        return null;
+    }
+    $provider = stotp_oauth_provider_by_slug($slug);
+
+    return $provider && (int) $provider->Enabled ? $provider : null;
+}
+
+function stotp_oauth_passkey_login_url($provider)
+{
+    $configured = trim((string) stotp_oauth_config('passkey_login_url', ''));
+    if ($configured !== '') {
+        return $configured;
+    }
+    $origin = stotp_oauth_origin($provider->AuthURL);
+
+    return $origin === '' ? '' : $origin . '/login';
+}
+
+function stotp_oauth_pending()
+{
+    stotp_oauth_session_start();
+    $pending = isset($_SESSION['STOTPOAuth_pending']) ? $_SESSION['STOTPOAuth_pending'] : null;
+    if (!is_array($pending) || time() - (int) $pending['created'] > 600) {
+        unset($_SESSION['STOTPOAuth_pending']);
+
+        return null;
+    }
+
+    return $pending;
+}
+
+function stotp_oauth_begin_binding($provider, $subject, $email, $profile)
+{
+    stotp_oauth_session_start();
+    $token = bin2hex(random_bytes(16));
+    $_SESSION['STOTPOAuth_pending'] = array(
+        'provider_id' => (int) $provider->ID,
+        'subject' => (string) $subject,
+        'email' => (string) $email,
+        'name' => isset($profile['name']) ? (string) $profile['name'] : '',
+        'token' => $token,
+        'attempts' => 0,
+        'created' => time(),
+    );
+    Redirect(stotp_oauth_callback_url() . '?action=bind');
+}
+
+function stotp_oauth_member_login($member, $redirect = '')
+{
+    global $zbp;
+
+    if (!$member || (int) $member->ID <= 0) {
+        stotp_oauth_fail('无法读取本地账号。');
+    }
+    if ((int) $member->Status !== 0) {
+        stotp_oauth_fail('本地账号已被禁用。');
+    }
+    $zbp->user = $member;
+    $zbp->islogin = true;
+    SetLoginCookie($member, time() + 30 * 86400);
+    if ($redirect === '') {
+        $redirect = stotp_oauth_config('login_redirect');
+    }
+    if ($redirect === '') {
+        $redirect = rtrim($zbp->host, '/') . '/zb_system/cmd.php?act=admin';
+    }
+    Redirect($redirect);
+}

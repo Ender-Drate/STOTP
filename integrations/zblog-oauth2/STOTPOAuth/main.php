@@ -31,10 +31,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Redirect('./main.php');
     }
     if ($postAction === 'settings') {
-        $zbp->Config('STOTPOAuth')->auto_register = isset($_POST['auto_register']) ? 1 : 0;
-        $zbp->Config('STOTPOAuth')->allow_email_link = isset($_POST['allow_email_link']) ? 1 : 0;
-        $level = isset($_POST['default_level']) ? (int) $_POST['default_level'] : 5;
-        $zbp->Config('STOTPOAuth')->default_level = max(2, min(6, $level));
+        $passkeyProvider = trim((string) ($_POST['passkey_provider'] ?? ''));
+        $validProvider = $passkeyProvider === '' ? null : stotp_oauth_provider_by_slug($passkeyProvider);
+        $zbp->Config('STOTPOAuth')->passkey_enabled = isset($_POST['passkey_enabled']) && $validProvider ? 1 : 0;
+        $zbp->Config('STOTPOAuth')->passkey_provider = $validProvider ? $validProvider->Slug : '';
+        $passkeyLoginUrl = trim((string) ($_POST['passkey_login_url'] ?? ''));
+        if ($passkeyLoginUrl !== '' && (!filter_var($passkeyLoginUrl, FILTER_VALIDATE_URL)
+            || !preg_match('#^https?://#i', $passkeyLoginUrl))) {
+            $zbp->ShowError('Passkey 登录入口必须是 http(s) URL');
+        }
+        $zbp->Config('STOTPOAuth')->passkey_login_url = $passkeyLoginUrl;
         $zbp->Config('STOTPOAuth')->login_redirect = trim((string) ($_POST['login_redirect'] ?? ''));
         $zbp->SaveConfig('STOTPOAuth');
         $zbp->SetHint('good');
@@ -188,10 +194,8 @@ require $blogpath . 'zb_system/admin/admin_top.php';
           <tr><td>PKCE</td><td><label><input type="checkbox" name="pkce" value="1" <?php echo $value('PKCE', 1) ? 'checked' : ''; ?>> 发送 code_challenge（S256）</label></td></tr>
           <tr><td>额外授权参数</td><td><input type="text" name="extra" style="width:90%" value="<?php echo $h($value('Extra')); ?>" placeholder="prompt=consent&access_type=offline"></td></tr>
           <tr><td>Subject 字段</td><td><input type="text" name="subject_field" style="width:90%" value="<?php echo $h($value('SubjectField', 'sub')); ?>"><p class="note">支持点路径，如 data.id；GitHub 用 id，OIDC 用 sub。</p></td></tr>
-          <tr><td>Email 字段</td><td><input type="text" name="email_field" style="width:90%" value="<?php echo $h($value('EmailField', 'email')); ?>"></td></tr>
+          <tr><td>Email 字段</td><td><input type="text" name="email_field" style="width:90%" value="<?php echo $h($value('EmailField', 'email')); ?>"><p class="note">仅作展示/绑定记录，绝不用于查找本地账号或自动绑定。</p></td></tr>
           <tr><td>Name 字段</td><td><input type="text" name="name_field" style="width:90%" value="<?php echo $h($value('NameField', 'name')); ?>"></td></tr>
-          <tr><td>Email Verified 字段</td><td><input type="text" name="verified_field" style="width:90%" value="<?php echo $h($value('VerifiedField', 'email_verified')); ?>"><p class="note">留空表示该 Provider 不返回验证字段；此时只有勾选「信任邮箱」才自动注册/绑定。</p></td></tr>
-          <tr><td>信任邮箱</td><td><label><input type="checkbox" name="trust_email" value="1" <?php echo $value('TrustEmail') ? 'checked' : ''; ?>> Provider 返回的邮箱视为已验证（仅用于不支持 email_verified 的服务）</label></td></tr>
           <tr><td>排序</td><td><input type="number" name="sort" value="<?php echo (int) $value('Sort', 0); ?>"></td></tr>
           <tr><td>启用</td><td><label><input type="checkbox" name="enabled" value="1" <?php echo $value('Enabled', 1) ? 'checked' : ''; ?>> 在登录页显示</label></td></tr>
         </table>
@@ -206,12 +210,9 @@ require $blogpath . 'zb_system/admin/admin_top.php';
       } ?>
       <table class="tableFull tableBorder">
         <tr><th colspan="2">全局设置</th></tr>
-        <tr><td>自动注册</td><td><label><input type="checkbox" name="auto_register" value="1" <?php echo stotp_oauth_config('auto_register', 1) ? 'checked' : ''; ?>> 未绑定用户首次登录时创建 Z-Blog 账号</label></td></tr>
-        <tr><td>已验证邮箱自动绑定</td><td><label><input type="checkbox" name="allow_email_link" value="1" <?php echo stotp_oauth_config('allow_email_link', 0) ? 'checked' : ''; ?>> 邮箱已验证且本地存在时绑定已有账号（默认关闭，避免邮箱关联接管）</label></td></tr>
-        <tr><td>默认用户等级</td><td><select name="default_level"><?php for ($level = 2; $level <= 6; $level++) {
-            $label = isset($zbp->lang['user_level_name'][$level]) ? $zbp->lang['user_level_name'][$level] : '等级 ' . $level;
-            echo '<option value="' . $level . '"' . ((int) stotp_oauth_config('default_level', 5) === $level ? ' selected' : '') . '>' . $h($label) . '</option>';
-        } ?></select></td></tr>
+        <tr><td>Passkey 登录</td><td><label><input type="checkbox" name="passkey_enabled" value="1" <?php echo stotp_oauth_config('passkey_enabled', 0) ? 'checked' : ''; ?>> 在登录页显示「使用 Passkey 登录」按钮</label><p class="note">通过所选 Provider 的登录入口发起 Passkey，完成后仍走 OAuth 回调与本地账号绑定。</p></td></tr>
+        <tr><td>Passkey Provider</td><td><select name="passkey_provider"><option value="">不启用</option><?php foreach ($providers as $passkeyOption) { ?><option value="<?php echo $h($passkeyOption->Slug); ?>" <?php echo stotp_oauth_config('passkey_provider') === $passkeyOption->Slug ? 'selected' : ''; ?>><?php echo $h($passkeyOption->Name); ?> (<?php echo $h($passkeyOption->Slug); ?>)</option><?php } ?></select></td></tr>
+        <tr><td>Passkey 登录入口</td><td><input type="url" name="passkey_login_url" style="width:90%" value="<?php echo $h(stotp_oauth_config('passkey_login_url')); ?>" placeholder="留空自动使用 Provider 域名 + /login"><p class="note">STOTP 示例：https://auth.example.com/login</p></td></tr>
         <tr><td>登录后跳转</td><td><input type="text" name="login_redirect" style="width:90%" value="<?php echo $h(stotp_oauth_config('login_redirect')); ?>" placeholder="留空跳转后台；可填 https://..."></td></tr>
       </table>
       <p><input type="submit" class="button" value="保存全局设置"></p>

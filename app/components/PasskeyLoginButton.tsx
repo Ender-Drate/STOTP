@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { passkeyErrorText, passkeySupportError } from "@/lib/passkey-client";
 
-export function PasskeyLoginButton({ next }: { next: string }) {
+export function PasskeyLoginButton({
+  next, autoStart = false,
+}: {
+  next: string;
+  autoStart?: boolean;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const attempted = useRef(false);
 
   async function login() {
     const unsupported = passkeySupportError();
@@ -49,12 +55,20 @@ export function PasskeyLoginButton({ next }: { next: string }) {
     }
   }
 
+  useEffect(() => {
+    if (!autoStart || attempted.current) return;
+    attempted.current = true;
+    void login();
+    // Auto-start only once; login is intentionally not a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
+
   return (
     <div style={{ marginTop: 14 }}>
       {error ? <div className="auth-error">{error}</div> : null}
       <button type="button" className="btn btn-ghost" style={{ width: "100%", height: 42 }}
         onClick={login} disabled={busy}>
-        {busy ? "等待设备…" : "使用 Passkey 登录"}
+        {busy ? "等待设备…" : autoStart ? "使用 Passkey 继续" : "使用 Passkey 登录"}
       </button>
       <p className="small muted" style={{ margin: "6px 0 0", textAlign: "center" }}>
         硬件安全密钥请先填写上方用户名或邮箱；平台 Passkey 可留空。
